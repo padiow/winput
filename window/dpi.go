@@ -27,7 +27,7 @@ func GetDPI(hwnd uintptr) (uint32, uint32, error) {
 			return uint32(r), uint32(r), nil
 		}
 	}
-	
+
 	// 2. Try GetDpiForMonitor (Win8.1+)
 	hMon := MonitorFromWindow(hwnd)
 	if hMon != 0 {
@@ -36,7 +36,7 @@ func GetDPI(hwnd uintptr) (uint32, uint32, error) {
 			return dx, dy, nil
 		}
 	}
-	
+
 	// 3. Fallback: GetDeviceCaps (Win7/Legacy)
 	hdc, _, _ := ProcGetDC.Call(hwnd)
 	if hdc != 0 {
@@ -48,7 +48,7 @@ func GetDPI(hwnd uintptr) (uint32, uint32, error) {
 			return uint32(dpix), uint32(dpiy), nil
 		}
 	}
-	
+
 	return 96, 96, fmt.Errorf("cannot determine DPI")
 }
 

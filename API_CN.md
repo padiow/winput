@@ -48,6 +48,9 @@ var (
     // ErrDriverNotInstalled 是 BackendHID 特有的，意味着 Interception 驱动丢失或不可访问。
     ErrDriverNotInstalled = errors.New("interception driver not installed or accessible")
 
+    // ErrDLLLoadFailed 意味着 interception.dll 加载失败。
+    ErrDLLLoadFailed = errors.New("failed to load interception library")
+
     // ErrPermissionDenied 意味着操作因系统权限限制（如 UIPI）而失败。
     ErrPermissionDenied = errors.New("permission denied")
 )
@@ -100,6 +103,15 @@ func SetBackend(b Backend)
 ```
 SetBackend 配置全局输入注入方法。默认为 `BackendMessage`。
 如果选择了 `BackendHID`，初始化检查（驱动是否存在）将推迟到首次尝试输入动作时进行。
+
+### func SetHIDLibraryPath
+
+```go
+func SetHIDLibraryPath(path string)
+```
+SetHIDLibraryPath 设置 `interception.dll` 的自定义加载路径。
+默认情况下，库会在系统 PATH 或当前目录下查找 DLL。
+必须在启用 `BackendHID` **之前** 调用此函数。
 
 ## 类型
 

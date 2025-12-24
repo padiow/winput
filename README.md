@@ -6,6 +6,7 @@ It provides a unified, window-centric API that abstracts the underlying input me
 
 ## Features
 
+*   **Pure Go (No CGO)**: Uses dynamic DLL loading. No GCC required for compilation.
 *   **Window-Centric API**: Operations are performed on `Window` objects, not raw HWNDs.
 *   **Background Input**: 
     *   **Message Backend**: Sends inputs directly to window message queues. Works without window focus or mouse cursor movement.
@@ -23,6 +24,16 @@ It provides a unified, window-centric API that abstracts the underlying input me
 ```bash
 go get github.com/rpdg/winput
 ```
+
+### HID Support (Optional)
+This library is **Pure Go** and does **not** require CGO.
+To use the HID backend:
+1.  Install the **Interception driver**.
+2.  Place `interception.dll` in your app directory, or specify its path:
+    ```go
+    winput.SetHIDLibraryPath("libs/interception.dll")
+    winput.SetBackend(winput.BackendHID)
+    ```
 
 ## Quick Start
 
@@ -60,6 +71,7 @@ winput avoids silent failures. Common errors you should handle:
 | :--- | :--- | :--- |
 | `ErrWindowNotFound` | Window not found by Title/Class/PID. | Check if the app is running or use `FindByClass` as fallback. |
 | `ErrDriverNotInstalled` | Interception driver missing (HID mode only). | Prompt user to install the driver or fallback to Message backend. |
+| `ErrDLLLoadFailed` | `interception.dll` not found or invalid. | Check DLL path (`SetHIDLibraryPath`) or installation. |
 | `ErrUnsupportedKey` | Character cannot be mapped to a key. | Check input string encoding or use raw `KeyDown` for special keys. |
 | `ErrPermissionDenied` | Operation blocked (e.g., UIPI). | Run your application as Administrator. |
 

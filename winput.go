@@ -3,6 +3,7 @@ package winput
 import (
 	"errors"
 	"fmt"
+
 	"github.com/rpdg/winput/hid"
 	"github.com/rpdg/winput/keyboard"
 	"github.com/rpdg/winput/mouse"
@@ -93,7 +94,7 @@ func (w *Window) Move(x, y int32) error {
 	if err := checkBackend(); err != nil {
 		return err
 	}
-	
+
 	if currentBackend == BackendHID {
 		sx, sy, err := window.ClientToScreen(w.HWND, x, y)
 		if err != nil {
@@ -122,7 +123,7 @@ func (w *Window) MoveRel(dx, dy int32) error {
 		// We should probably expose a direct "MoveRel" in hid package too.
 		// For now let's reuse Move logic or implement raw relative move?
 		// User asked for "MoveRel" in review.
-		
+
 		// If we use hid.Move (which is smooth), we need target screen coords.
 		cx, cy, err := window.GetCursorPos()
 		if err != nil {
@@ -130,27 +131,27 @@ func (w *Window) MoveRel(dx, dy int32) error {
 		}
 		return hid.Move(cx+dx, cy+dy)
 	}
-	
+
 	// Message Backend: MoveRel is tricky because WM_MOUSEMOVE expects client coords.
 	// We need to know where the "virtual" mouse is? Or physical?
 	// Message backend usually doesn't move physical cursor.
 	// So "Relative" implies relative to where we last clicked? Or relative to current physical cursor?
 	// If relative to physical cursor, it might be weird if we are not moving it.
 	// Let's assume relative to current physical cursor mapped to client space.
-	
+
 	sx, sy, err := window.GetCursorPos()
 	if err != nil {
 		return err
 	}
 	// Target Screen Coords
 	tx, ty := sx+dx, sy+dy
-	
+
 	// Convert Target Screen to Client
 	cx, cy, err := window.ScreenToClient(w.HWND, tx, ty)
 	if err != nil {
 		return err
 	}
-	
+
 	return mouse.Move(w.HWND, cx, cy)
 }
 
@@ -218,7 +219,7 @@ func (w *Window) Scroll(x, y int32, delta int32) error {
 	if err := checkBackend(); err != nil {
 		return err
 	}
-	
+
 	if currentBackend == BackendHID {
 		return hid.Scroll(delta)
 	}
@@ -234,74 +235,74 @@ type Key = keyboard.Key
 
 // Common Key Constants Re-export
 const (
-	KeyEsc   = keyboard.KeyEsc
-	Key1     = keyboard.Key1
-	Key2     = keyboard.Key2
-	Key3     = keyboard.Key3
-	Key4     = keyboard.Key4
-	Key5     = keyboard.Key5
-	Key6     = keyboard.Key6
-	Key7     = keyboard.Key7
-	Key8     = keyboard.Key8
-	Key9     = keyboard.Key9
-	Key0     = keyboard.Key0
-	KeyMinus = keyboard.KeyMinus
-	KeyEqual = keyboard.KeyEqual
-	KeyBkSp  = keyboard.KeyBkSp
-	KeyTab   = keyboard.KeyTab
-	KeyQ     = keyboard.KeyQ
-	KeyW     = keyboard.KeyW
-	KeyE     = keyboard.KeyE
-	KeyR     = keyboard.KeyR
-	KeyT     = keyboard.KeyT
-	KeyY     = keyboard.KeyY
-	KeyU     = keyboard.KeyU
-	KeyI     = keyboard.KeyI
-	KeyO     = keyboard.KeyO
-	KeyP     = keyboard.KeyP
-	KeyLBr   = keyboard.KeyLBr
-	KeyRBr   = keyboard.KeyRBr
-	KeyEnter = keyboard.KeyEnter
-	KeyCtrl  = keyboard.KeyCtrl
-	KeyA     = keyboard.KeyA
-	KeyS     = keyboard.KeyS
-	KeyD     = keyboard.KeyD
-	KeyF     = keyboard.KeyF
-	KeyG     = keyboard.KeyG
-	KeyH     = keyboard.KeyH
-	KeyJ     = keyboard.KeyJ
-	KeyK     = keyboard.KeyK
-	KeyL     = keyboard.KeyL
-	KeySemi  = keyboard.KeySemi
-	KeyQuot  = keyboard.KeyQuot
-	KeyTick  = keyboard.KeyTick
-	KeyShift = keyboard.KeyShift
+	KeyEsc       = keyboard.KeyEsc
+	Key1         = keyboard.Key1
+	Key2         = keyboard.Key2
+	Key3         = keyboard.Key3
+	Key4         = keyboard.Key4
+	Key5         = keyboard.Key5
+	Key6         = keyboard.Key6
+	Key7         = keyboard.Key7
+	Key8         = keyboard.Key8
+	Key9         = keyboard.Key9
+	Key0         = keyboard.Key0
+	KeyMinus     = keyboard.KeyMinus
+	KeyEqual     = keyboard.KeyEqual
+	KeyBkSp      = keyboard.KeyBkSp
+	KeyTab       = keyboard.KeyTab
+	KeyQ         = keyboard.KeyQ
+	KeyW         = keyboard.KeyW
+	KeyE         = keyboard.KeyE
+	KeyR         = keyboard.KeyR
+	KeyT         = keyboard.KeyT
+	KeyY         = keyboard.KeyY
+	KeyU         = keyboard.KeyU
+	KeyI         = keyboard.KeyI
+	KeyO         = keyboard.KeyO
+	KeyP         = keyboard.KeyP
+	KeyLBr       = keyboard.KeyLBr
+	KeyRBr       = keyboard.KeyRBr
+	KeyEnter     = keyboard.KeyEnter
+	KeyCtrl      = keyboard.KeyCtrl
+	KeyA         = keyboard.KeyA
+	KeyS         = keyboard.KeyS
+	KeyD         = keyboard.KeyD
+	KeyF         = keyboard.KeyF
+	KeyG         = keyboard.KeyG
+	KeyH         = keyboard.KeyH
+	KeyJ         = keyboard.KeyJ
+	KeyK         = keyboard.KeyK
+	KeyL         = keyboard.KeyL
+	KeySemi      = keyboard.KeySemi
+	KeyQuot      = keyboard.KeyQuot
+	KeyTick      = keyboard.KeyTick
+	KeyShift     = keyboard.KeyShift
 	KeyBackslash = keyboard.KeyBackslash
-	KeyZ     = keyboard.KeyZ
-	KeyX     = keyboard.KeyX
-	KeyC     = keyboard.KeyC
-	KeyV     = keyboard.KeyV
-	KeyB     = keyboard.KeyB
-	KeyN     = keyboard.KeyN
-	KeyM     = keyboard.KeyM
-	KeyComma = keyboard.KeyComma
-	KeyDot   = keyboard.KeyDot
-	KeySlash = keyboard.KeySlash
-	KeySpace = keyboard.KeySpace
-	KeyAlt   = keyboard.KeyAlt
-	KeyCaps  = keyboard.KeyCaps
-	KeyF1    = keyboard.KeyF1
-	KeyF2    = keyboard.KeyF2
-	KeyF3    = keyboard.KeyF3
-	KeyF4    = keyboard.KeyF4
-	KeyF5    = keyboard.KeyF5
-	KeyF6    = keyboard.KeyF6
-	KeyF7    = keyboard.KeyF7
-	KeyF8    = keyboard.KeyF8
-	KeyF9    = keyboard.KeyF9
-	KeyF10   = keyboard.KeyF10
-	KeyF11   = keyboard.KeyF11
-	KeyF12   = keyboard.KeyF12
+	KeyZ         = keyboard.KeyZ
+	KeyX         = keyboard.KeyX
+	KeyC         = keyboard.KeyC
+	KeyV         = keyboard.KeyV
+	KeyB         = keyboard.KeyB
+	KeyN         = keyboard.KeyN
+	KeyM         = keyboard.KeyM
+	KeyComma     = keyboard.KeyComma
+	KeyDot       = keyboard.KeyDot
+	KeySlash     = keyboard.KeySlash
+	KeySpace     = keyboard.KeySpace
+	KeyAlt       = keyboard.KeyAlt
+	KeyCaps      = keyboard.KeyCaps
+	KeyF1        = keyboard.KeyF1
+	KeyF2        = keyboard.KeyF2
+	KeyF3        = keyboard.KeyF3
+	KeyF4        = keyboard.KeyF4
+	KeyF5        = keyboard.KeyF5
+	KeyF6        = keyboard.KeyF6
+	KeyF7        = keyboard.KeyF7
+	KeyF8        = keyboard.KeyF8
+	KeyF9        = keyboard.KeyF9
+	KeyF10       = keyboard.KeyF10
+	KeyF11       = keyboard.KeyF11
+	KeyF12       = keyboard.KeyF12
 )
 
 func KeyFromRune(r rune) (Key, bool) {
@@ -317,7 +318,7 @@ func (w *Window) KeyDown(key Key) error {
 	if currentBackend == BackendHID {
 		return hid.KeyDown(uint16(key))
 	}
-	
+
 	err := keyboard.KeyDown(w.HWND, key)
 	if err != nil {
 		return err
@@ -383,7 +384,7 @@ func (w *Window) Type(text string) error {
 		if !ok {
 			return ErrUnsupportedKey
 		}
-		
+
 		// Handle Shift
 		if shifted {
 			if currentBackend == BackendHID {

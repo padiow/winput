@@ -48,6 +48,9 @@ var (
     // ErrDriverNotInstalled specific to BackendHID, implies the Interception driver is missing or not accessible.
     ErrDriverNotInstalled = errors.New("interception driver not installed or accessible")
 
+    // ErrDLLLoadFailed implies interception.dll could not be loaded.
+    ErrDLLLoadFailed = errors.New("failed to load interception library")
+
     // ErrPermissionDenied implies the operation failed due to system privilege restrictions (e.g. UIPI).
     ErrPermissionDenied = errors.New("permission denied")
 )
@@ -100,6 +103,15 @@ func SetBackend(b Backend)
 ```
 SetBackend configures the global input injection method. The default is `BackendMessage`.
 If `BackendHID` is selected, initialization checks (driver presence) are deferred until the first input action is attempted.
+
+### func SetHIDLibraryPath
+
+```go
+func SetHIDLibraryPath(path string)
+```
+SetHIDLibraryPath sets the custom path for `interception.dll`.
+By default, winput searches for the DLL in the system PATH or current directory.
+This must be called **before** enabling `BackendHID`.
 
 ## Types
 

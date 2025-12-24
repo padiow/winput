@@ -6,6 +6,7 @@
 
 ## 功能特性
 
+*   **纯 Go 实现 (无 CGO)**: 使用动态 DLL 加载，编译不需要 GCC 环境。
 *   **窗口为中心 (Window-Centric)**: 所有操作均基于 `Window` 对象，无需直接操作 HWND。
 *   **后台输入 (Background Input)**:
     *   **消息后端 (Message Backend)**: 直接向窗口消息队列发送事件。无需窗口焦点，也不移动物理鼠标。
@@ -23,6 +24,16 @@
 ```bash
 go get github.com/rpdg/winput
 ```
+
+### HID 支持 (可选)
+本库为 **纯 Go 实现**，**不需要** CGO 编译环境。
+若需使用 HID 后端：
+1.  安装 **Interception 驱动**。
+2.  确保 `interception.dll` 存在。默认在当前目录或 PATH 中查找，也可以指定路径：
+    ```go
+    winput.SetHIDLibraryPath("libs/interception.dll")
+    winput.SetBackend(winput.BackendHID)
+    ```
 
 ## 快速开始
 
@@ -60,6 +71,7 @@ func main() {
 | :--- | :--- | :--- |
 | `ErrWindowNotFound` | 无法通过 Title/Class/PID 找到窗口。 | 检查应用是否运行，或尝试改用 `FindByClass`。 |
 | `ErrDriverNotInstalled` | Interception 驱动丢失（仅 HID 模式）。 | 提示用户安装驱动，或自动降级到 Message 后端。 |
+| `ErrDLLLoadFailed` | `interception.dll` 加载失败。 | 检查 DLL 路径 (`SetHIDLibraryPath`) 或安装。 |
 | `ErrUnsupportedKey` | 字符无法映射到按键。 | 检查输入字符串，特殊按键请使用 `KeyDown`。 |
 | `ErrPermissionDenied` | 操作被系统阻止 (如 UIPI)。 | 尝试以管理员身份运行程序。 |
 

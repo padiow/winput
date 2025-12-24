@@ -24,9 +24,7 @@ func SetLibraryPath(path string) {
 	libraryPath = path
 }
 
-var (
-	ErrLibraryNotFound = fmt.Errorf("interception library not found")
-)
+var ErrLibraryNotFound = fmt.Errorf("interception library not found")
 
 // Load loads the interception.dll and resolves function addresses.
 func Load() error {
@@ -63,8 +61,10 @@ func getProc(h syscall.Handle, name string) uintptr {
 
 // Types
 
-type Context uintptr
-type Device int
+type (
+	Context uintptr
+	Device  int
+)
 
 // Go-friendly structs
 type MouseStroke struct {
@@ -151,7 +151,7 @@ func SendKey(ctx Context, dev Device, s *KeyStroke) {
 	if procSend == 0 {
 		return
 	}
-	// Note: KeyStroke is smaller than MouseStroke. 
+	// Note: KeyStroke is smaller than MouseStroke.
 	// Interception expects a pointer to a buffer of size INTERCEPTION_STROKE (which is max of mouse/key).
 	// But interception_send implementation likely only reads relevant fields based on device type.
 	// However, to be safe and match the C logic (casting to array of char), we should ensure memory safety.
