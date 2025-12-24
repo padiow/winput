@@ -1,20 +1,24 @@
 package hid
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"sync"
 	"time"
+
 	"github.com/rpdg/winput/hid/interception"
 	"github.com/rpdg/winput/window"
 )
 
+var ErrDriverNotInstalled = errors.New("interception driver not installed or accessible")
+
 var (
-	ctx          interception.Context
-	mouseDev     interception.Device
-	keyboardDev  interception.Device
-	initialized  bool
-	initMutex    sync.Mutex
+	ctx         interception.Context
+	mouseDev    interception.Device
+	keyboardDev interception.Device
+	initialized bool
+	initMutex   sync.Mutex
 )
 
 // Init initializes the Interception context and finds devices.
@@ -28,7 +32,7 @@ func Init() error {
 
 	ctx = interception.CreateContext()
 	if ctx == nil {
-		return fmt.Errorf("failed to create interception context")
+		return ErrDriverNotInstalled
 	}
 
 	// Simple device discovery: iterate 1..20
@@ -82,7 +86,7 @@ func Move(targetX, targetY int32) error {
 	for i := 1; i <= steps; i++ {
 		nextX := cx + (targetX-cx)*int32(i)/int32(steps)
 		nextY := cy + (targetY-cy)*int32(i)/int32(steps)
-		
+
 		curX, curY, _ := window.GetCursorPos()
 		dx := nextX - curX
 		dy := nextY - curY
@@ -101,7 +105,7 @@ func Move(targetX, targetY int32) error {
 			X:     dx,
 			Y:     dy,
 		}
-		
+
 		interception.SendMouse(ctx, mouseDev, &stroke)
 		time.Sleep(5 * time.Millisecond)
 	}
@@ -113,15 +117,15 @@ func Click(x, y int32) error {
 		return err
 	}
 	humanSleep(50)
-	
+
 	down := interception.MouseStroke{State: interception.MouseStateLeftDown}
 	interception.SendMouse(ctx, mouseDev, &down)
-	
+
 	humanSleep(60)
-	
+
 	up := interception.MouseStroke{State: interception.MouseStateLeftUp}
 	interception.SendMouse(ctx, mouseDev, &up)
-	
+
 	return nil
 }
 
@@ -130,13 +134,29 @@ func ClickRight(x, y int32) error {
 		return err
 	}
 	humanSleep(50)
-	
+
 	down := interception.MouseStroke{State: interception.MouseStateRightDown}
 	interception.SendMouse(ctx, mouseDev, &down)
-	
+
 	humanSleep(60)
-	
+
 	up := interception.MouseStroke{State: interception.MouseStateRightUp}
+	interception.SendMouse(ctx, mouseDev, &up)
+	return nil
+}
+
+func ClickMiddle(x, y int32) error {
+	if err := Move(x, y); err != nil {
+		return err
+	}
+	humanSleep(50)
+
+	down := interception.MouseStroke{State: interception.MouseStateMiddleDown}
+	interception.SendMouse(ctx, mouseDev, &down)
+
+	humanSleep(60)
+
+	up := interception.MouseStroke{State: interception.MouseStateMiddleUp}
 	interception.SendMouse(ctx, mouseDev, &up)
 	return nil
 }
@@ -147,6 +167,19 @@ func DoubleClick(x, y int32) error {
 	}
 	humanSleep(80)
 	return Click(x, y)
+}
+
+func Scroll(delta int32) error {
+	if err := EnsureInit(); err != nil {
+		return err
+	}
+
+	stroke := interception.MouseStroke{
+		State:   interception.MouseStateWheel,
+		Rolling: int16(delta),
+	}
+	interception.SendMouse(ctx, mouseDev, &stroke)
+	return nil
 }
 
 // -----------------------------------------------------------------------------

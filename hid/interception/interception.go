@@ -13,22 +13,24 @@ import "C"
 import "unsafe"
 
 // Types
-type Context C.InterceptionContext
-type Device C.InterceptionDevice
+type (
+	Context C.InterceptionContext
+	Device  C.InterceptionDevice
+)
 
 // Go-friendly structs
 type MouseStroke struct {
-	State uint16
-	Flags uint16
-	Rolling int16
-	X     int32
-	Y     int32
+	State       uint16
+	Flags       uint16
+	Rolling     int16
+	X           int32
+	Y           int32
 	Information uint32
 }
 
 type KeyStroke struct {
-	Code  uint16
-	State uint16
+	Code        uint16
+	State       uint16
 	Information uint32
 }
 
@@ -40,9 +42,9 @@ const (
 	MouseStateRightUp    = C.INTERCEPTION_MOUSE_RIGHT_BUTTON_UP
 	MouseStateMiddleDown = C.INTERCEPTION_MOUSE_MIDDLE_BUTTON_DOWN
 	MouseStateMiddleUp   = C.INTERCEPTION_MOUSE_MIDDLE_BUTTON_UP
+	MouseStateWheel      = C.INTERCEPTION_MOUSE_WHEEL
 
 	MouseFlagMoveRelative = C.INTERCEPTION_MOUSE_MOVE_RELATIVE
-	MouseFlagMoveAbsolute = C.INTERCEPTION_MOUSE_MOVE_ABSOLUTE
 )
 
 // Constants for Keyboard

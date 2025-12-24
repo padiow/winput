@@ -24,22 +24,21 @@
 //
 // Example:
 //
-//  // 1. Find the window
-//  w, err := winput.FindByTitle("Untitled - Notepad")
-//  if err != nil {
-//      log.Fatal(winput.ErrWindowNotFound)
-//  }
+//	// 1. Find the window
+//	w, err := winput.FindByTitle("Untitled - Notepad")
+//	if err != nil {
+//	    log.Fatal(winput.ErrWindowNotFound)
+//	}
 //
-//  // 2. Setup DPI awareness (optional but recommended)
-//  winput.EnablePerMonitorDPI()
+//	// 2. Setup DPI awareness (optional but recommended)
+//	winput.EnablePerMonitorDPI()
 //
-//  // 3. Perform actions (using default Message backend)
-//  w.Click(100, 100)       // Click at client (100, 100)
-//  w.Type("Hello World")   // Background typing
-//  w.Press(winput.KeyEnter)
+//	// 3. Perform actions (using default Message backend)
+//	w.Click(100, 100)       // Click at client (100, 100)
+//	w.Type("Hello World")   // Background typing
+//	w.Press(winput.KeyEnter)
 //
-//  // 4. Switch to HID backend (if needed)
-//  // winput.SetBackend(winput.BackendHID)
-//  // w.Move(50, 50) // Now moves the actual mouse cursor to (50,50) relative to the window
-//
+//	// 4. Switch to HID backend (if needed)
+//	// winput.SetBackend(winput.BackendHID)
+//	// w.Move(50, 50) // Now moves the actual mouse cursor to (50,50) relative to the window
 package winput

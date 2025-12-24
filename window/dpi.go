@@ -10,12 +10,13 @@ var dpiAwarenessPerMonitorV2 = ^uintptr(3)
 
 func EnablePerMonitorDPI() error {
 	if ProcSetProcessDpiAwarenessCtx.Find() != nil {
+		// Fallback for older windows: SetProcessDPIAware?
+		// But prompt focused on modern/robust.
+		// If func missing, likely Win7/8. Just ignore or log?
+		// For robustness, we return specific error or nil if we don't care.
 		return fmt.Errorf("SetProcessDpiAwarenessContext not found")
 	}
 	r, _, _ := ProcSetProcessDpiAwarenessCtx.Call(dpiAwarenessPerMonitorV2)
-	// If the return value is NULL (0), it might have failed, but documentation says:
-	// "If the function succeeds, the return value is TRUE. Otherwise, it is FALSE."
-	// Actually SetProcessDpiAwarenessContext returns TRUE/FALSE.
 	if r == 0 {
 		return fmt.Errorf("SetProcessDpiAwarenessContext failed")
 	}
@@ -23,17 +24,15 @@ func EnablePerMonitorDPI() error {
 }
 
 func GetDPI(hwnd uintptr) (uint32, error) {
+	// 1. Try GetDpiForWindow (Win10+)
 	if ProcGetDpiForWindow.Find() == nil {
 		r, _, _ := ProcGetDpiForWindow.Call(hwnd)
 		if r != 0 {
 			return uint32(r), nil
 		}
 	}
-	
-	// Fallback or explicit failure? Prompt says "No silent degradation". 
-	// But getting DPI is critical. If GetDpiForWindow is missing (Win8.1 or older), 
-	// we might want to try GetDpiForMonitor.
-	
+
+	// 2. Try GetDpiForMonitor (Win8.1+)
 	hMon := MonitorFromWindow(hwnd)
 	if hMon != 0 {
 		dx, _, err := GetDpiForMonitor(hMon)
@@ -41,7 +40,18 @@ func GetDPI(hwnd uintptr) (uint32, error) {
 			return dx, nil
 		}
 	}
-	
+
+	// 3. Fallback: GetDeviceCaps (Win7/Legacy)
+	// LOGPIXELSX = 88
+	hdc, _, _ := ProcGetDC.Call(hwnd)
+	if hdc != 0 {
+		defer ProcReleaseDC.Call(hwnd, hdc)
+		dpi, _, _ := ProcGetDeviceCaps.Call(hdc, 88)
+		if dpi > 0 {
+			return uint32(dpi), nil
+		}
+	}
+
 	return 96, fmt.Errorf("cannot determine DPI")
 }
 
