@@ -25,10 +25,20 @@ func main() {
 	}
 	fmt.Printf("✅ Found Notepad handle: %x\n", w.HWND)
 
+	// NOTE: For some applications like Notepad, the main window handle
+	// is just a container. Real input must be sent to a child window (the Edit control).
+	edit, err := w.FindChildByClass("Edit")
+	if err != nil {
+		log.Printf("⚠️  Could not find 'Edit' child window: %v. Using main window instead.", err)
+		edit = w
+	} else {
+		fmt.Printf("✅ Found Notepad Edit control: %x\n", edit.HWND)
+	}
+
 	// 3. Input Operations
-	// Type text
+	// Type text into the EDIT control
 	fmt.Println("👉 Typing text...")
-	if err := w.Type("Hello from winput (Message Backend)!\n"); err != nil {
+	if err := edit.Type("Hello from winput (Message Backend)!\n"); err != nil {
 		if errors.Is(err, winput.ErrWindowNotVisible) {
 			log.Fatal("❌ Window is minimized. Please restore it.")
 		}
@@ -36,13 +46,13 @@ func main() {
 	}
 
 	// Press Hotkey (Select All: Ctrl+A)
-	fmt.Println("👉 Testing Hotkey (Ctrl+A)...")
-	winput.PressHotkey(winput.KeyCtrl, winput.KeyA)
-	time.Sleep(500 * time.Millisecond)
+	// fmt.Println("👉 Testing Hotkey (Ctrl+A)...")
+	// edit.PressHotkey(winput.KeyCtrl, winput.KeyA)
+	// time.Sleep(500 * time.Millisecond)
 
-	// Mouse Click (Right Click context menu)
+	// Mouse Click (Right Click context menu inside Edit control)
 	fmt.Println("👉 Testing Right Click...")
-	w.ClickRight(100, 100)
+	edit.ClickRight(100, 100)
 
 	fmt.Println("=== Done ===")
 }

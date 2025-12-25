@@ -200,6 +200,13 @@ func FindByProcessName(name string) ([]*Window, error)
 ```
 FindByProcessName 返回属于指定可执行文件名称的所有顶级窗口。
 
+#### func (*Window) FindChildByClass
+
+```go
+func (w *Window) FindChildByClass(class string) (*Window, error)
+```
+FindChildByClass 搜索具有指定类名的子窗口（例如 Notepad 内部的 "Edit" 控件）。
+
 #### func (*Window) Move
 
 ```go

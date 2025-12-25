@@ -84,6 +84,7 @@ To use the HID backend:
 
 ### 1. Basic Message Backend (Standard Apps)
 Ideal for standard windows (Notepad, etc.). Works in background.
+**Tip**: For some apps (like Notepad), you may need to find the child window (e.g., "Edit") to send text.
 ```bash
 go run cmd/example/basic_message/main.go
 ```

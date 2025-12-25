@@ -84,6 +84,7 @@ go get github.com/rpdg/winput
 
 ### 1. 基础后台交互 (Message Backend)
 适用于标准窗口（如记事本）。后台运行，不占用鼠标。
+**提示**: 对于某些应用（如记事本），你可能需要查找子窗口（如 "Edit" 类）才能发送文本。
 ```bash
 go run cmd/example/basic_message/main.go
 ```

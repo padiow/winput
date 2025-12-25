@@ -34,6 +34,19 @@ func FindByClass(class string) (uintptr, error) {
 	return ret, nil
 }
 
+func FindChildByClass(parent uintptr, class string) (uintptr, error) {
+	ret, _, _ := ProcFindWindowExW.Call(
+		parent,
+		0,
+		uintptr(unsafe.Pointer(utf16Ptr(class))),
+		0,
+	)
+	if ret == 0 {
+		return 0, fmt.Errorf("child window not found with class: %s", class)
+	}
+	return ret, nil
+}
+
 func FindByPID(targetPid uint32) ([]uintptr, error) {
 	var hwnds []uintptr
 

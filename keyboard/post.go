@@ -11,6 +11,7 @@ import (
 const (
 	WM_KEYDOWN = 0x0100
 	WM_KEYUP   = 0x0101
+	WM_CHAR    = 0x0102
 
 	MAPVK_VSC_TO_VK = 1
 )
@@ -45,7 +46,6 @@ func KeyDown(hwnd uintptr, key Key) error {
 	// 30: Previous Key State (0 for first press)
 	// 31: Transition State (0 for key down)
 	lparam := uintptr(1) | (uintptr(key) << 16)
-
 	return post(hwnd, WM_KEYDOWN, vk, lparam)
 }
 
@@ -62,10 +62,7 @@ func KeyUp(hwnd uintptr, key Key) error {
 	// 29: Context Code (0)
 	// 30: Previous Key State (1, always down before up)
 	// 31: Transition State (1, key is being released)
-	lparam := uintptr(1) |
-		(uintptr(key) << 16) |
-		(1 << 30) |
-		(1 << 31)
+	lparam := uintptr(1) | (uintptr(key) << 16) | (1 << 30) | (1 << 31)
 
 	return post(hwnd, WM_KEYUP, vk, lparam)
 }
@@ -78,26 +75,26 @@ func Press(hwnd uintptr, key Key) error {
 	return KeyUp(hwnd, key)
 }
 
+// Type sends text using WM_CHAR.
+// This is the most reliable way for background window text input as it
+// bypasses the need for global modifier key states (Shift/Ctrl).
 func Type(hwnd uintptr, text string) error {
 	for _, r := range text {
-		k, shifted, ok := LookupKey(r)
-		if ok {
-			if shifted {
-				if err := KeyDown(hwnd, KeyShift); err != nil {
-					return err
-				}
-				// Small delay for modifier to register
-				time.Sleep(10 * time.Millisecond)
-				if err := Press(hwnd, k); err != nil {
-					return err
-				}
-				if err := KeyUp(hwnd, KeyShift); err != nil {
-					return err
-				}
-			} else {
-				if err := Press(hwnd, k); err != nil {
-					return err
-				}
+		// WM_CHAR accepts UTF-16 code unit.
+		if r > 0xFFFF {
+			// Handle surrogate pairs
+			r -= 0x10000
+			high := 0xD800 + (r >> 10)
+			low := 0xDC00 + (r & 0x3FF)
+			if err := post(hwnd, WM_CHAR, uintptr(high), 1); err != nil {
+				return err
+			}
+			if err := post(hwnd, WM_CHAR, uintptr(low), 1); err != nil {
+				return err
+			}
+		} else {
+			if err := post(hwnd, WM_CHAR, uintptr(r), 1); err != nil {
+				return err
 			}
 		}
 		time.Sleep(30 * time.Millisecond)

@@ -31,7 +31,7 @@ func main() {
 	cy := (center.Top + center.Bottom) / 2
 
 	fmt.Printf("👉 Moving mouse to center of primary monitor (%d, %d)...\n", cx, cy)
-	winput.MoveMouseTo(cx, cy)
+	winput.ClickMouseAt(cx, cy)
 
 	// Simulate typing "globally" (goes to active window)
 	fmt.Println("👉 Typing globally...")

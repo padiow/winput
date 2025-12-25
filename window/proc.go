@@ -25,6 +25,7 @@ var (
 	ProcSetCursorPos        = user32.NewProc("SetCursorPos")
 	ProcMouseEvent          = user32.NewProc("mouse_event")
 	ProcKeybdEvent          = user32.NewProc("keybd_event")
+	ProcSendInput           = user32.NewProc("SendInput")
 	ProcMonitorFromPoint    = user32.NewProc("MonitorFromPoint")
 	ProcMonitorFromWindow   = user32.NewProc("MonitorFromWindow")
 	ProcEnumDisplayMonitors = user32.NewProc("EnumDisplayMonitors")

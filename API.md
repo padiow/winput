@@ -215,6 +215,13 @@ func FindByProcessName(name string) ([]*Window, error)
 ```
 FindByProcessName returns all top-level windows belonging to the process with the given executable name.
 
+#### func (*Window) FindChildByClass
+
+```go
+func (w *Window) FindChildByClass(class string) (*Window, error)
+```
+FindChildByClass searches for a child window with the specified class name (e.g. "Edit" inside Notepad).
+
 #### func (*Window) Move
 
 ```go

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/rpdg/winput/hid"
 	"github.com/rpdg/winput/keyboard"
@@ -57,6 +58,14 @@ func FindByProcessName(name string) ([]*Window, error) {
 	return FindByPID(pid)
 }
 
+func (w *Window) FindChildByClass(class string) (*Window, error) {
+	hwnd, err := window.FindChildByClass(w.HWND, class)
+	if err != nil {
+		return nil, err
+	}
+	return &Window{HWND: hwnd}, nil
+}
+
 // -----------------------------------------------------------------------------
 // Window State
 // -----------------------------------------------------------------------------
@@ -93,8 +102,7 @@ const (
 var (
 	currentBackend Backend = BackendMessage
 	backendMutex   sync.RWMutex
-	// inputMutex ensures global input serialization
-	inputMutex sync.Mutex
+	inputMutex     sync.Mutex
 )
 
 func SetBackend(b Backend) {
@@ -169,13 +177,11 @@ func keyDownImpl(cb Backend, hwnd uintptr, k Key) error {
 	if cb == BackendHID {
 		return hid.KeyDown(uint16(k))
 	}
-	// Global KeyDown (no window target)
 	if hwnd == 0 {
 		vk := keyboard.MapScanCodeToVK(k)
 		window.ProcKeybdEvent.Call(vk, 0, 0, 0)
 		return nil
 	}
-	// Window KeyDown
 	return keyboard.KeyDown(hwnd, k)
 }
 
@@ -183,13 +189,11 @@ func keyUpImpl(cb Backend, hwnd uintptr, k Key) error {
 	if cb == BackendHID {
 		return hid.KeyUp(uint16(k))
 	}
-	// Global KeyUp
 	if hwnd == 0 {
 		vk := keyboard.MapScanCodeToVK(k)
 		window.ProcKeybdEvent.Call(vk, 0, 0x0002, 0)
 		return nil
 	}
-	// Window KeyUp
 	return keyboard.KeyUp(hwnd, k)
 }
 
@@ -200,7 +204,6 @@ func keyUpImpl(cb Backend, hwnd uintptr, k Key) error {
 func (w *Window) Move(x, y int32) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-
 	if err := w.checkReady(); err != nil {
 		return err
 	}
@@ -213,7 +216,6 @@ func (w *Window) Move(x, y int32) error {
 func (w *Window) MoveRel(dx, dy int32) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-
 	if err := w.checkReady(); err != nil {
 		return err
 	}
@@ -226,7 +228,6 @@ func (w *Window) MoveRel(dx, dy int32) error {
 func (w *Window) Click(x, y int32) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-
 	if err := w.checkReady(); err != nil {
 		return err
 	}
@@ -247,7 +248,6 @@ func (w *Window) Click(x, y int32) error {
 func (w *Window) ClickRight(x, y int32) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-
 	if err := w.checkReady(); err != nil {
 		return err
 	}
@@ -268,7 +268,6 @@ func (w *Window) ClickRight(x, y int32) error {
 func (w *Window) ClickMiddle(x, y int32) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-
 	if err := w.checkReady(); err != nil {
 		return err
 	}
@@ -289,7 +288,6 @@ func (w *Window) ClickMiddle(x, y int32) error {
 func (w *Window) DoubleClick(x, y int32) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-
 	if err := w.checkReady(); err != nil {
 		return err
 	}
@@ -310,7 +308,6 @@ func (w *Window) DoubleClick(x, y int32) error {
 func (w *Window) Scroll(x, y int32, delta int32) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-
 	if err := w.checkReady(); err != nil {
 		return err
 	}
@@ -331,7 +328,6 @@ func (w *Window) Scroll(x, y int32, delta int32) error {
 func MoveMouseTo(x, y int32) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-
 	if err := checkBackend(); err != nil {
 		return err
 	}
@@ -350,7 +346,6 @@ func MoveMouseTo(x, y int32) error {
 func ClickMouseAt(x, y int32) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-
 	if err := checkBackend(); err != nil {
 		return err
 	}
@@ -431,8 +426,8 @@ const (
 	KeyComma     = keyboard.KeyComma
 	KeyDot       = keyboard.KeyDot
 	KeySlash     = keyboard.KeySlash
-	KeySpace     = keyboard.KeySpace
 	KeyAlt       = keyboard.KeyAlt
+	KeySpace     = keyboard.KeySpace
 	KeyCaps      = keyboard.KeyCaps
 	KeyF1        = keyboard.KeyF1
 	KeyF2        = keyboard.KeyF2
@@ -547,6 +542,12 @@ func (w *Window) Type(text string) error {
 	}
 
 	cb := getBackend()
+	if cb == BackendMessage {
+		// Use WM_CHAR for reliability in background
+		return keyboard.Type(w.HWND, text)
+	}
+
+	// HID Backend simulation
 	for _, r := range text {
 		k, shifted, ok := keyboard.LookupKey(r)
 		if !ok {
@@ -554,20 +555,12 @@ func (w *Window) Type(text string) error {
 		}
 
 		if shifted {
-			if err := keyDownImpl(cb, w.HWND, KeyShift); err != nil {
-				return err
-			}
+			hid.KeyDown(uint16(KeyShift))
 			time.Sleep(10 * time.Millisecond)
-
-			keyDownImpl(cb, w.HWND, k)
-			time.Sleep(30 * time.Millisecond)
-			keyUpImpl(cb, w.HWND, k)
-
-			keyUpImpl(cb, w.HWND, KeyShift)
+			hid.Press(uint16(k))
+			hid.KeyUp(uint16(KeyShift))
 		} else {
-			keyDownImpl(cb, w.HWND, k)
-			time.Sleep(30 * time.Millisecond)
-			keyUpImpl(cb, w.HWND, k)
+			hid.Press(uint16(k))
 		}
 		time.Sleep(30 * time.Millisecond)
 	}
@@ -632,6 +625,7 @@ func PressHotkey(keys ...Key) error {
 	return nil
 }
 
+// Global Type using SendInput (Unicode) for Message Backend
 func Type(text string) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
@@ -640,38 +634,69 @@ func Type(text string) error {
 	}
 
 	cb := getBackend()
+	if cb == BackendHID {
+		for _, r := range text {
+			k, shifted, ok := keyboard.LookupKey(r)
+			if !ok {
+				return ErrUnsupportedKey
+			}
+			if shifted {
+				hid.KeyDown(uint16(KeyShift))
+				time.Sleep(10 * time.Millisecond)
+				hid.Press(uint16(k))
+				hid.KeyUp(uint16(KeyShift))
+			} else {
+				hid.Press(uint16(k))
+			}
+			time.Sleep(30 * time.Millisecond)
+		}
+		return nil
+	}
+
+	// Message Backend Fallback: SendInput with Unicode
 	for _, r := range text {
-		k, shifted, ok := keyboard.LookupKey(r)
-		if !ok {
-			return ErrUnsupportedKey
-		}
-
-		if shifted {
-			keyDownImpl(cb, 0, KeyShift)
-			time.Sleep(10 * time.Millisecond)
-
-			keyDownImpl(cb, 0, k)
-			time.Sleep(30 * time.Millisecond)
-			keyUpImpl(cb, 0, k)
-
-			keyUpImpl(cb, 0, KeyShift)
-		} else {
-			keyDownImpl(cb, 0, k)
-			time.Sleep(30 * time.Millisecond)
-			keyUpImpl(cb, 0, k)
-		}
+		sendUnicode(r)
 		time.Sleep(30 * time.Millisecond)
 	}
 	return nil
 }
 
-func GetCursorPos() (int32, int32, error) {
-	return window.GetCursorPos()
+func sendUnicode(r rune) {
+	// INPUT structure for SendInput
+	type keyboardInput struct {
+		Type  uint32
+		Vk    uint16
+		Scan  uint16
+		Flags uint32
+		Time  uint32
+		Extra uintptr
+	}
+	const (
+		INPUT_KEYBOARD    = 1
+		KEYEVENTF_UNICODE = 0x0004
+		KEYEVENTF_KEYUP   = 0x0002
+	)
+
+	// Note: simplified for rune. Real implementation should handle surrogates if needed.
+	var inputs [2]keyboardInput
+	inputs[0].Type = INPUT_KEYBOARD
+	inputs[0].Scan = uint16(r)
+	inputs[0].Flags = KEYEVENTF_UNICODE
+
+	inputs[1].Type = INPUT_KEYBOARD
+	inputs[1].Scan = uint16(r)
+	inputs[1].Flags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP
+
+	window.ProcSendInput.Call(2, uintptr(unsafe.Pointer(&inputs[0])), uintptr(unsafe.Sizeof(inputs[0])))
 }
 
 // -----------------------------------------------------------------------------
 // Coordinate & DPI
 // -----------------------------------------------------------------------------
+
+func GetCursorPos() (int32, int32, error) {
+	return window.GetCursorPos()
+}
 
 func EnablePerMonitorDPI() error {
 	return window.EnablePerMonitorDPI()
