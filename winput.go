@@ -49,7 +49,6 @@ func FindByPID(pid uint32) ([]*Window, error) {
 }
 
 // FindByProcessName searches for all top-level windows belonging to a process with the given executable name.
-// name: e.g. "notepad.exe"
 func FindByProcessName(name string) ([]*Window, error) {
 	pid, err := window.FindPIDByName(name)
 	if err != nil {
@@ -94,6 +93,8 @@ const (
 var (
 	currentBackend Backend = BackendMessage
 	backendMutex   sync.RWMutex
+	// inputMutex ensures global input serialization
+	inputMutex     sync.Mutex
 )
 
 func SetBackend(b Backend) {
@@ -104,162 +105,6 @@ func SetBackend(b Backend) {
 
 func SetHIDLibraryPath(path string) {
 	hid.SetLibraryPath(path)
-}
-
-// -----------------------------------------------------------------------------
-// Global Input API (Screen Coordinates)
-// -----------------------------------------------------------------------------
-
-// MoveMouseTo moves the mouse cursor to the absolute screen coordinates (Virtual Desktop).
-// x, y: Virtual Screen Coordinates (can be negative).
-// BackendMessage: Uses SetCursorPos (Instant).
-// BackendHID: Uses human-like trajectory.
-func MoveMouseTo(x, y int32) error {
-	if err := checkBackend(); err != nil {
-		return err
-	}
-
-	if getBackend() == BackendHID {
-		return hid.Move(x, y)
-	}
-	
-	// Fallback to User32 SetCursorPos
-	r, _, _ := window.ProcSetCursorPos.Call(uintptr(x), uintptr(y))
-	if r == 0 {
-		return fmt.Errorf("SetCursorPos failed")
-	}
-	return nil
-}
-
-// ClickMouseAt moves to the specified screen coordinates and performs a left click.
-func ClickMouseAt(x, y int32) error {
-	if err := MoveMouseTo(x, y); err != nil {
-		return err
-	}
-	
-	if getBackend() == BackendHID {
-		// hid.Click relies on current cursor position, which MoveMouseTo just set.
-		// However, hid.Click takes "target" coords and moves again.
-		// We can just call hid.Click(x, y) as it handles movement internally too.
-		return hid.Click(x, y)
-	}
-
-	// BackendMessage Fallback: mouse_event
-	// MOUSEEVENTF_LEFTDOWN = 0x0002
-	// MOUSEEVENTF_LEFTUP   = 0x0004
-	time.Sleep(30 * time.Millisecond)
-	window.ProcMouseEvent.Call(0x0002, 0, 0, 0, 0)
-	window.ProcMouseEvent.Call(0x0004, 0, 0, 0, 0)
-	return nil
-}
-
-// KeyDown simulates a global key down event.
-// Does not require a target window.
-func KeyDown(k Key) error {
-	if err := checkBackend(); err != nil {
-		return err
-	}
-
-	if getBackend() == BackendHID {
-		return hid.KeyDown(uint16(k))
-	}
-
-	// Message Backend Fallback: keybd_event
-	// KEYEVENTF_SCANCODE = 0x0008
-	// We map ScanCode to VK because keybd_event expects VK usually, but can take ScanCode.
-	// Let's use VK for better compatibility if we don't have Extended Key flag logic.
-	// Actually, keybd_event(bVk, bScan, dwFlags, dwExtraInfo)
-	// We can use keyboard.MapScanCodeToVK
-	vk := keyboard.MapScanCodeToVK(k)
-	window.ProcKeybdEvent.Call(vk, 0, 0, 0)
-	return nil
-}
-
-// KeyUp simulates a global key up event.
-func KeyUp(k Key) error {
-	if err := checkBackend(); err != nil {
-		return err
-	}
-
-	if getBackend() == BackendHID {
-		return hid.KeyUp(uint16(k))
-	}
-
-	// KEYEVENTF_KEYUP = 0x0002
-	vk := keyboard.MapScanCodeToVK(k)
-	window.ProcKeybdEvent.Call(vk, 0, 0x0002, 0)
-	return nil
-}
-
-// Press simulates a global key press (Down + Up).
-func Press(k Key) error {
-	if err := KeyDown(k); err != nil {
-		return err
-	}
-	// Default delay for key press to be registered by most apps
-	time.Sleep(30 * time.Millisecond)
-	return KeyUp(k)
-}
-
-// PressHotkey simulates a global combination of keys.
-func PressHotkey(keys ...Key) error {
-	if len(keys) == 0 {
-		return nil
-	}
-	
-	// No Window checkReady here, as it's global
-	if err := checkBackend(); err != nil {
-		return err
-	}
-
-	for _, k := range keys {
-		if err := KeyDown(k); err != nil {
-			return err
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	// Hold the combination briefly
-	time.Sleep(30 * time.Millisecond)
-	for i := len(keys) - 1; i >= 0; i-- {
-		if err := KeyUp(keys[i]); err != nil {
-			return err
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	return nil
-}
-
-// Type simulates global text input.
-func Type(text string) error {
-	if err := checkBackend(); err != nil {
-		return err
-	}
-
-	// For global input, we don't have the luxury of WM_CHAR bypassing layout.
-	// We MUST simulate keystrokes.
-	// So we use the same logic as HID backend (LookupKey -> Shift -> Press).
-	
-	for _, r := range text {
-		k, shifted, ok := keyboard.LookupKey(r)
-		if !ok {
-			return ErrUnsupportedKey
-		}
-
-		if shifted {
-			if err := KeyDown(KeyShift); err != nil { return err }
-			time.Sleep(10 * time.Millisecond)
-			if err := Press(k); err != nil { 
-				KeyUp(KeyShift)
-				return err 
-			}
-			if err := KeyUp(KeyShift); err != nil { return err }
-		} else {
-			if err := Press(k); err != nil { return err }
-		}
-		// Delay between characters
-		time.Sleep(30 * time.Millisecond)
-	}
-	return nil
 }
 
 func checkBackend() error {
@@ -285,56 +130,103 @@ func getBackend() Backend {
 }
 
 // -----------------------------------------------------------------------------
+// Implementation Helpers (No Lock)
+// -----------------------------------------------------------------------------
+
+func moveImpl(cb Backend, hwnd uintptr, x, y int32, isRelative bool) error {
+	if cb == BackendHID {
+		if isRelative {
+			cx, cy, err := window.GetCursorPos()
+			if err != nil {
+				return err
+			}
+			return hid.Move(cx+x, cy+y)
+		} else {
+			sx, sy, err := window.ClientToScreen(hwnd, x, y)
+			if err != nil {
+				return err
+			}
+			return hid.Move(sx, sy)
+		}
+	}
+	
+	if isRelative {
+		sx, sy, err := window.GetCursorPos()
+		if err != nil {
+			return err
+		}
+		tx, ty := sx+x, sy+y
+		cx, cy, err := window.ScreenToClient(hwnd, tx, ty)
+		if err != nil {
+			return err
+		}
+		return mouse.Move(hwnd, cx, cy)
+	}
+	return mouse.Move(hwnd, x, y)
+}
+
+func keyDownImpl(cb Backend, hwnd uintptr, k Key) error {
+	if cb == BackendHID {
+		return hid.KeyDown(uint16(k))
+	}
+	// Global KeyDown (no window target)
+	if hwnd == 0 {
+		vk := keyboard.MapScanCodeToVK(k)
+		window.ProcKeybdEvent.Call(vk, 0, 0, 0)
+		return nil
+	}
+	// Window KeyDown
+	return keyboard.KeyDown(hwnd, k)
+}
+
+func keyUpImpl(cb Backend, hwnd uintptr, k Key) error {
+	if cb == BackendHID {
+		return hid.KeyUp(uint16(k))
+	}
+	// Global KeyUp
+	if hwnd == 0 {
+		vk := keyboard.MapScanCodeToVK(k)
+		window.ProcKeybdEvent.Call(vk, 0, 0x0002, 0)
+		return nil
+	}
+	// Window KeyUp
+	return keyboard.KeyUp(hwnd, k)
+}
+
+// -----------------------------------------------------------------------------
 // Input API (Mouse)
 // -----------------------------------------------------------------------------
 
 func (w *Window) Move(x, y int32) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+
 	if err := w.checkReady(); err != nil {
 		return err
 	}
 	if err := checkBackend(); err != nil {
 		return err
 	}
-
-	if getBackend() == BackendHID {
-		sx, sy, err := window.ClientToScreen(w.HWND, x, y)
-		if err != nil {
-			return err
-		}
-		return hid.Move(sx, sy)
-	}
-	return mouse.Move(w.HWND, x, y)
+	return moveImpl(getBackend(), w.HWND, x, y, false)
 }
 
 func (w *Window) MoveRel(dx, dy int32) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+
 	if err := w.checkReady(); err != nil {
 		return err
 	}
 	if err := checkBackend(); err != nil {
 		return err
 	}
-
-	if getBackend() == BackendHID {
-		cx, cy, err := window.GetCursorPos()
-		if err != nil {
-			return err
-		}
-		return hid.Move(cx+dx, cy+dy)
-	}
-
-	sx, sy, err := window.GetCursorPos()
-	if err != nil {
-		return err
-	}
-	tx, ty := sx+dx, sy+dy
-	cx, cy, err := window.ScreenToClient(w.HWND, tx, ty)
-	if err != nil {
-		return err
-	}
-	return mouse.Move(w.HWND, cx, cy)
+	return moveImpl(getBackend(), w.HWND, dx, dy, true)
 }
 
 func (w *Window) Click(x, y int32) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+
 	if err := w.checkReady(); err != nil {
 		return err
 	}
@@ -353,6 +245,9 @@ func (w *Window) Click(x, y int32) error {
 }
 
 func (w *Window) ClickRight(x, y int32) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+
 	if err := w.checkReady(); err != nil {
 		return err
 	}
@@ -371,6 +266,9 @@ func (w *Window) ClickRight(x, y int32) error {
 }
 
 func (w *Window) ClickMiddle(x, y int32) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+
 	if err := w.checkReady(); err != nil {
 		return err
 	}
@@ -389,6 +287,9 @@ func (w *Window) ClickMiddle(x, y int32) error {
 }
 
 func (w *Window) DoubleClick(x, y int32) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+
 	if err := w.checkReady(); err != nil {
 		return err
 	}
@@ -407,6 +308,9 @@ func (w *Window) DoubleClick(x, y int32) error {
 }
 
 func (w *Window) Scroll(x, y int32, delta int32) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+
 	if err := w.checkReady(); err != nil {
 		return err
 	}
@@ -418,6 +322,53 @@ func (w *Window) Scroll(x, y int32, delta int32) error {
 		return hid.Scroll(delta)
 	}
 	return mouse.Scroll(w.HWND, x, y, delta)
+}
+
+// -----------------------------------------------------------------------------
+// Global Input API (Screen Coordinates)
+// -----------------------------------------------------------------------------
+
+func MoveMouseTo(x, y int32) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+
+	if err := checkBackend(); err != nil {
+		return err
+	}
+
+	if getBackend() == BackendHID {
+		return hid.Move(x, y)
+	}
+	
+	r, _, _ := window.ProcSetCursorPos.Call(uintptr(x), uintptr(y))
+	if r == 0 {
+		return fmt.Errorf("SetCursorPos failed")
+	}
+	return nil
+}
+
+func ClickMouseAt(x, y int32) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+
+	if err := checkBackend(); err != nil {
+		return err
+	}
+	
+	if getBackend() == BackendHID {
+		return hid.Click(x, y)
+	}
+
+	// Message Backend Fallback (duplicated logic from MoveMouseTo to avoid calling locked func)
+	r, _, _ := window.ProcSetCursorPos.Call(uintptr(x), uintptr(y))
+	if r == 0 {
+		return fmt.Errorf("SetCursorPos failed")
+	}
+
+	time.Sleep(30 * time.Millisecond)
+	window.ProcMouseEvent.Call(0x0002, 0, 0, 0, 0)
+	window.ProcMouseEvent.Call(0x0004, 0, 0, 0, 0)
+	return nil
 }
 
 // -----------------------------------------------------------------------------
@@ -515,130 +466,157 @@ func KeyFromRune(r rune) (Key, bool) {
 	return k, ok
 }
 
-func (w *Window) KeyDown(key Key) error {
-	if err := w.checkReady(); err != nil {
-		return err
-	}
-	if err := checkBackend(); err != nil {
-		return err
-	}
+// Public Wrappers using Lock
 
-	if getBackend() == BackendHID {
-		return hid.KeyDown(uint16(key))
-	}
-	return keyboard.KeyDown(w.HWND, key)
+func (w *Window) KeyDown(key Key) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+	if err := w.checkReady(); err != nil { return err }
+	if err := checkBackend(); err != nil { return err }
+	return keyDownImpl(getBackend(), w.HWND, key)
 }
 
 func (w *Window) KeyUp(key Key) error {
-	if err := w.checkReady(); err != nil {
-		return err
-	}
-	if err := checkBackend(); err != nil {
-		return err
-	}
-
-	if getBackend() == BackendHID {
-		return hid.KeyUp(uint16(key))
-	}
-	return keyboard.KeyUp(w.HWND, key)
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+	if err := w.checkReady(); err != nil { return err }
+	if err := checkBackend(); err != nil { return err }
+	return keyUpImpl(getBackend(), w.HWND, key)
 }
 
 func (w *Window) Press(key Key) error {
-	if err := w.checkReady(); err != nil {
-		return err
-	}
-	if err := checkBackend(); err != nil {
-		return err
-	}
-
-	if getBackend() == BackendHID {
-		return hid.Press(uint16(key))
-	}
-	return keyboard.Press(w.HWND, key)
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+	if err := w.checkReady(); err != nil { return err }
+	if err := checkBackend(); err != nil { return err }
+	
+	if err := keyDownImpl(getBackend(), w.HWND, key); err != nil { return err }
+	time.Sleep(30 * time.Millisecond)
+	return keyUpImpl(getBackend(), w.HWND, key)
 }
 
 func (w *Window) PressHotkey(keys ...Key) error {
-	if len(keys) == 0 {
-		return nil
-	}
-	if err := w.checkReady(); err != nil {
-		return err
-	}
-	if err := checkBackend(); err != nil {
-		return err
-	}
-
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+	if err := w.checkReady(); err != nil { return err }
+	if err := checkBackend(); err != nil { return err }
+	
+	cb := getBackend()
 	for _, k := range keys {
-		if err := w.KeyDown(k); err != nil {
-			return err
-		}
+		if err := keyDownImpl(cb, w.HWND, k); err != nil { return err }
+		time.Sleep(10 * time.Millisecond)
 	}
+	time.Sleep(30 * time.Millisecond)
 	for i := len(keys) - 1; i >= 0; i-- {
-		if err := w.KeyUp(keys[i]); err != nil {
-			return err
-		}
+		if err := keyUpImpl(cb, w.HWND, keys[i]); err != nil { return err }
+		time.Sleep(10 * time.Millisecond)
 	}
 	return nil
 }
 
 func (w *Window) Type(text string) error {
-	if err := w.checkReady(); err != nil {
-		return err
-	}
-	if err := checkBackend(); err != nil {
-		return err
-	}
-
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+	if err := w.checkReady(); err != nil { return err }
+	if err := checkBackend(); err != nil { return err }
+	
 	cb := getBackend()
-
 	for _, r := range text {
 		k, shifted, ok := keyboard.LookupKey(r)
-		if !ok {
-			return ErrUnsupportedKey
-		}
+		if !ok { return ErrUnsupportedKey }
 
 		if shifted {
-			if cb == BackendHID {
-				if err := hid.KeyDown(uint16(KeyShift)); err != nil {
-					return err
-				}
-				time.Sleep(10 * time.Millisecond)
-				// Defer cleanup not applicable in loop, must manual check
-				if err := hid.Press(uint16(k)); err != nil {
-					hid.KeyUp(uint16(KeyShift)) // Try cleanup
-					return err
-				}
-				if err := hid.KeyUp(uint16(KeyShift)); err != nil {
-					return err
-				}
-			} else {
-				if err := keyboard.KeyDown(w.HWND, KeyShift); err != nil {
-					return err
-				}
-				time.Sleep(10 * time.Millisecond)
-				if err := keyboard.Press(w.HWND, k); err != nil {
-					keyboard.KeyUp(w.HWND, KeyShift) // Try cleanup
-					return err
-				}
-				if err := keyboard.KeyUp(w.HWND, KeyShift); err != nil {
-					return err
-				}
-			}
+			if err := keyDownImpl(cb, w.HWND, KeyShift); err != nil { return err }
+			time.Sleep(10 * time.Millisecond)
+			
+			keyDownImpl(cb, w.HWND, k)
+			time.Sleep(30 * time.Millisecond)
+			keyUpImpl(cb, w.HWND, k)
+			
+			keyUpImpl(cb, w.HWND, KeyShift)
 		} else {
-			if cb == BackendHID {
-				if err := hid.Press(uint16(k)); err != nil {
-					return err
-				}
-			} else {
-				if err := keyboard.Press(w.HWND, k); err != nil {
-					return err
-				}
-			}
+			keyDownImpl(cb, w.HWND, k)
+			time.Sleep(30 * time.Millisecond)
+			keyUpImpl(cb, w.HWND, k)
 		}
 		time.Sleep(30 * time.Millisecond)
 	}
 	return nil
 }
+
+// Global Wrappers
+
+func KeyDown(k Key) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+	if err := checkBackend(); err != nil { return err }
+	return keyDownImpl(getBackend(), 0, k)
+}
+
+func KeyUp(k Key) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+	if err := checkBackend(); err != nil { return err }
+	return keyUpImpl(getBackend(), 0, k)
+}
+
+func Press(k Key) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+	if err := checkBackend(); err != nil { return err }
+	
+	if err := keyDownImpl(getBackend(), 0, k); err != nil { return err }
+	time.Sleep(30 * time.Millisecond)
+	return keyUpImpl(getBackend(), 0, k)
+}
+
+func PressHotkey(keys ...Key) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+	if err := checkBackend(); err != nil { return err }
+	
+	cb := getBackend()
+	for _, k := range keys {
+		if err := keyDownImpl(cb, 0, k); err != nil { return err }
+		time.Sleep(10 * time.Millisecond)
+	}
+	time.Sleep(30 * time.Millisecond)
+	for i := len(keys) - 1; i >= 0; i-- {
+		if err := keyUpImpl(cb, 0, keys[i]); err != nil { return err }
+		time.Sleep(10 * time.Millisecond)
+	}
+	return nil
+}
+
+func Type(text string) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+	if err := checkBackend(); err != nil { return err }
+	
+	cb := getBackend()
+	for _, r := range text {
+		k, shifted, ok := keyboard.LookupKey(r)
+		if !ok { return ErrUnsupportedKey }
+
+		if shifted {
+			keyDownImpl(cb, 0, KeyShift)
+			time.Sleep(10 * time.Millisecond)
+			
+			keyDownImpl(cb, 0, k)
+			time.Sleep(30 * time.Millisecond)
+			keyUpImpl(cb, 0, k)
+			
+			keyUpImpl(cb, 0, KeyShift)
+		} else {
+			keyDownImpl(cb, 0, k)
+			time.Sleep(30 * time.Millisecond)
+			keyUpImpl(cb, 0, k)
+		}
+		time.Sleep(30 * time.Millisecond)
+	}
+	return nil
+}
+
 // -----------------------------------------------------------------------------
 // Coordinate & DPI
 // -----------------------------------------------------------------------------

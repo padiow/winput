@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rpdg/winput"
+	"github.com/rpdg/winput/screen"
 )
 
 func main() {
@@ -51,7 +52,24 @@ func main() {
 	w.PressHotkey(winput.KeyShift, winput.Key1) // Prints '!'
 	w.Press(winput.KeyEnter)
 
-	// 5. HID Backend (Optional)
+	// 5. Global Input & Screen Geometry (New in v1.1)
+	fmt.Println("👉 Testing Global Input & Screen Geometry...")
+	bounds := screen.VirtualBounds()
+	fmt.Printf("   Virtual Desktop Bounds: %d, %d, %d, %d\n", bounds.Left, bounds.Top, bounds.Right, bounds.Bottom)
+	
+	monitors, _ := screen.Monitors()
+	fmt.Printf("   Found %d monitors\n", len(monitors))
+
+	// Move mouse to center of primary monitor (using Global API)
+	if len(monitors) > 0 {
+		center := monitors[0].Bounds
+		cx := (center.Left + center.Right) / 2
+		cy := (center.Top + center.Bottom) / 2
+		fmt.Printf("   Moving to primary monitor center: %d, %d\n", cx, cy)
+		winput.MoveMouseTo(cx, cy)
+	}
+
+	// 6. HID Backend (Optional)
 	fmt.Println("👉 Testing HID Backend (Mouse Move)...")
 	// Note: interception.dll must be present for this to work
 	winput.SetHIDLibraryPath("interception.dll") // Default, strictly optional call
