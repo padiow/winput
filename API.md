@@ -123,6 +123,58 @@ SetHIDLibraryPath sets the custom path for `interception.dll`.
 By default, winput searches for the DLL in the system PATH or current directory.
 This must be called **before** enabling `BackendHID`.
 
+### func MoveMouseTo
+
+```go
+func MoveMouseTo(x, y int32) error
+```
+MoveMouseTo moves the mouse cursor to the absolute screen coordinates (Virtual Desktop).
+Useful for visual automation where HWND is unreliable (e.g., Electron apps).
+*   **BackendMessage**: Uses `SetCursorPos` (Instant).
+*   **BackendHID**: Uses human-like trajectory.
+
+### func ClickMouseAt
+
+```go
+func ClickMouseAt(x, y int32) error
+```
+ClickMouseAt moves to the specified screen coordinates and performs a left click.
+
+### func KeyDown
+
+```go
+func KeyDown(k Key) error
+```
+KeyDown simulates a global key down event.
+
+### func KeyUp
+
+```go
+func KeyUp(k Key) error
+```
+KeyUp simulates a global key up event.
+
+### func Press
+
+```go
+func Press(k Key) error
+```
+Press simulates a global key press (Down + Up).
+
+### func PressHotkey
+
+```go
+func PressHotkey(keys ...Key) error
+```
+PressHotkey simulates a global combination of keys.
+
+### func Type
+
+```go
+func Type(text string) error
+```
+Type simulates global text input by simulating keystrokes for each character.
+
 ## Types
 
 ### type Backend

@@ -15,10 +15,11 @@
 //     This mode simulates hardware-level input, complete with human-like mouse movement trajectories
 //     and jitter. Supports custom DLL path via SetHIDLibraryPath.
 //
-// 3. Coordinate System & DPI:
-// All API calls accept window-relative (client) coordinates. The library handles:
-//   - Screen <-> Client conversion.
-//   - Multi-level DPI discovery (Per-Monitor v2, falling back to GDI DeviceCaps for legacy systems).
+// 3. Coordinate System & Screen Management:
+//   - Window-Centric: Operations on *Window use client coordinates.
+//   - Global Input: MoveMouseTo/ClickMouseAt/Type for absolute virtual desktop coordinates (useful for Electron/Games).
+//   - Screen Package: winput/screen helpers for querying monitor bounds and virtual desktop geometry.
+//   - DPI Awareness: Per-Monitor v2 support for accurate mapping.
 //
 // 4. Intelligent Keyboard Input:
 //   - Type(string) automatically handles Shift modifiers for uppercase letters and symbols.
@@ -48,9 +49,11 @@
 //	w.Type("Hello World!")  // Automatically handles Shift for 'H', 'W', and '!'
 //	w.Press(winput.KeyEnter)
 //
-//	// 4. Switch to HID backend for hardware-level simulation
+//	// 4. Global Input (Visual Automation / Electron)
+//	// winput.MoveMouseTo(1920, 500)
+//	// winput.ClickMouseAt(1920, 500)
+//
+//	// 5. Switch to HID backend for hardware-level simulation
 //	// winput.SetHIDLibraryPath("libs/interception.dll")
 //	// winput.SetBackend(winput.BackendHID)
-//	// err := w.MoveRel(10, 10) // Moves physical cursor
-//	// if errors.Is(err, winput.ErrDriverNotInstalled) { ... }
 package winput

@@ -19,6 +19,29 @@ It provides a unified, window-centric API that abstracts the underlying input me
     *   Explicit error returns (no silent failures).
     *   Type-safe Key definitions.
 
+## Vision Automation (Electron / Games)
+For applications like **Electron** (VS Code, Discord) or games where `HWND` is unreliable or standard messages are ignored:
+
+1.  **Do not use `FindBy...`**: Window handles are often just containers.
+2.  **Use Global Coordinates**: Locate elements visually (e.g., using OpenCV) to get screen coordinates.
+3.  **Use Global Input**:
+    ```go
+    // Move to absolute screen position (Virtual Desktop)
+    winput.MoveMouseTo(1920, 500)
+    winput.ClickMouseAt(1920, 500)
+    
+    // Type globally (no specific window target)
+    winput.Type("Hello Electron!")
+    winput.Press(winput.KeyEnter)
+    ```
+4.  **Use `winput/screen`**: Helper package to query monitor bounds.
+    ```go
+    import "github.com/rpdg/winput/screen"
+    
+    bounds := screen.VirtualBounds()
+    fmt.Printf("Desktop: %d, %d", bounds.Right, bounds.Bottom)
+    ```
+
 ## Backend Limitations & Permissions
 
 ### Message Backend

@@ -19,6 +19,29 @@
     *   显式错误返回 (Explicit Errors)，拒绝静默失败。
     *   类型安全的 Key 定义 (避免直接使用裸扫描码)。
 
+## 视觉自动化 (Electron / 游戏)
+对于 **Electron** 应用 (如 VS Code, Discord) 或游戏，`HWND` 往往不可靠且忽略标准消息：
+
+1.  **不要使用 `FindBy...`**：窗口句柄通常只是一个容器。
+2.  **使用全局坐标**：通过视觉识别（如 OpenCV）获取屏幕坐标。
+3.  **使用全局输入**：
+    ```go
+    // 移动到绝对屏幕位置 (虚拟桌面坐标)
+    winput.MoveMouseTo(1920, 500)
+    winput.ClickMouseAt(1920, 500)
+    
+    // 全局输入 (不针对特定窗口)
+    winput.Type("Hello Electron!")
+    winput.Press(winput.KeyEnter)
+    ```
+4.  **使用 `winput/screen`**：辅助包用于查询屏幕边界。
+    ```go
+    import "github.com/rpdg/winput/screen"
+    
+    bounds := screen.VirtualBounds()
+    fmt.Printf("桌面边界: %d, %d", bounds.Right, bounds.Bottom)
+    ```
+
 ## 后端限制与权限
 
 ### 消息后端 (Message Backend)

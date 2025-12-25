@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/rpdg/winput/hid"
 	"github.com/rpdg/winput/keyboard"
@@ -103,6 +104,162 @@ func SetBackend(b Backend) {
 
 func SetHIDLibraryPath(path string) {
 	hid.SetLibraryPath(path)
+}
+
+// -----------------------------------------------------------------------------
+// Global Input API (Screen Coordinates)
+// -----------------------------------------------------------------------------
+
+// MoveMouseTo moves the mouse cursor to the absolute screen coordinates (Virtual Desktop).
+// x, y: Virtual Screen Coordinates (can be negative).
+// BackendMessage: Uses SetCursorPos (Instant).
+// BackendHID: Uses human-like trajectory.
+func MoveMouseTo(x, y int32) error {
+	if err := checkBackend(); err != nil {
+		return err
+	}
+
+	if getBackend() == BackendHID {
+		return hid.Move(x, y)
+	}
+	
+	// Fallback to User32 SetCursorPos
+	r, _, _ := window.ProcSetCursorPos.Call(uintptr(x), uintptr(y))
+	if r == 0 {
+		return fmt.Errorf("SetCursorPos failed")
+	}
+	return nil
+}
+
+// ClickMouseAt moves to the specified screen coordinates and performs a left click.
+func ClickMouseAt(x, y int32) error {
+	if err := MoveMouseTo(x, y); err != nil {
+		return err
+	}
+	
+	if getBackend() == BackendHID {
+		// hid.Click relies on current cursor position, which MoveMouseTo just set.
+		// However, hid.Click takes "target" coords and moves again.
+		// We can just call hid.Click(x, y) as it handles movement internally too.
+		return hid.Click(x, y)
+	}
+
+	// BackendMessage Fallback: mouse_event
+	// MOUSEEVENTF_LEFTDOWN = 0x0002
+	// MOUSEEVENTF_LEFTUP   = 0x0004
+	time.Sleep(30 * time.Millisecond)
+	window.ProcMouseEvent.Call(0x0002, 0, 0, 0, 0)
+	window.ProcMouseEvent.Call(0x0004, 0, 0, 0, 0)
+	return nil
+}
+
+// KeyDown simulates a global key down event.
+// Does not require a target window.
+func KeyDown(k Key) error {
+	if err := checkBackend(); err != nil {
+		return err
+	}
+
+	if getBackend() == BackendHID {
+		return hid.KeyDown(uint16(k))
+	}
+
+	// Message Backend Fallback: keybd_event
+	// KEYEVENTF_SCANCODE = 0x0008
+	// We map ScanCode to VK because keybd_event expects VK usually, but can take ScanCode.
+	// Let's use VK for better compatibility if we don't have Extended Key flag logic.
+	// Actually, keybd_event(bVk, bScan, dwFlags, dwExtraInfo)
+	// We can use keyboard.MapScanCodeToVK
+	vk := keyboard.MapScanCodeToVK(k)
+	window.ProcKeybdEvent.Call(vk, 0, 0, 0)
+	return nil
+}
+
+// KeyUp simulates a global key up event.
+func KeyUp(k Key) error {
+	if err := checkBackend(); err != nil {
+		return err
+	}
+
+	if getBackend() == BackendHID {
+		return hid.KeyUp(uint16(k))
+	}
+
+	// KEYEVENTF_KEYUP = 0x0002
+	vk := keyboard.MapScanCodeToVK(k)
+	window.ProcKeybdEvent.Call(vk, 0, 0x0002, 0)
+	return nil
+}
+
+// Press simulates a global key press (Down + Up).
+func Press(k Key) error {
+	if err := KeyDown(k); err != nil {
+		return err
+	}
+	// Default delay for key press to be registered by most apps
+	time.Sleep(30 * time.Millisecond)
+	return KeyUp(k)
+}
+
+// PressHotkey simulates a global combination of keys.
+func PressHotkey(keys ...Key) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	
+	// No Window checkReady here, as it's global
+	if err := checkBackend(); err != nil {
+		return err
+	}
+
+	for _, k := range keys {
+		if err := KeyDown(k); err != nil {
+			return err
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	// Hold the combination briefly
+	time.Sleep(30 * time.Millisecond)
+	for i := len(keys) - 1; i >= 0; i-- {
+		if err := KeyUp(keys[i]); err != nil {
+			return err
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return nil
+}
+
+// Type simulates global text input.
+func Type(text string) error {
+	if err := checkBackend(); err != nil {
+		return err
+	}
+
+	// For global input, we don't have the luxury of WM_CHAR bypassing layout.
+	// We MUST simulate keystrokes.
+	// So we use the same logic as HID backend (LookupKey -> Shift -> Press).
+	
+	for _, r := range text {
+		k, shifted, ok := keyboard.LookupKey(r)
+		if !ok {
+			return ErrUnsupportedKey
+		}
+
+		if shifted {
+			if err := KeyDown(KeyShift); err != nil { return err }
+			time.Sleep(10 * time.Millisecond)
+			if err := Press(k); err != nil { 
+				KeyUp(KeyShift)
+				return err 
+			}
+			if err := KeyUp(KeyShift); err != nil { return err }
+		} else {
+			if err := Press(k); err != nil { return err }
+		}
+		// Delay between characters
+		time.Sleep(30 * time.Millisecond)
+	}
+	return nil
 }
 
 func checkBackend() error {
@@ -445,6 +602,7 @@ func (w *Window) Type(text string) error {
 				if err := hid.KeyDown(uint16(KeyShift)); err != nil {
 					return err
 				}
+				time.Sleep(10 * time.Millisecond)
 				// Defer cleanup not applicable in loop, must manual check
 				if err := hid.Press(uint16(k)); err != nil {
 					hid.KeyUp(uint16(KeyShift)) // Try cleanup
@@ -457,6 +615,7 @@ func (w *Window) Type(text string) error {
 				if err := keyboard.KeyDown(w.HWND, KeyShift); err != nil {
 					return err
 				}
+				time.Sleep(10 * time.Millisecond)
 				if err := keyboard.Press(w.HWND, k); err != nil {
 					keyboard.KeyUp(w.HWND, KeyShift) // Try cleanup
 					return err
@@ -476,6 +635,7 @@ func (w *Window) Type(text string) error {
 				}
 			}
 		}
+		time.Sleep(30 * time.Millisecond)
 	}
 	return nil
 }

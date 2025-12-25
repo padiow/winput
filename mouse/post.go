@@ -3,6 +3,7 @@ package mouse
 import (
 	"fmt"
 	"syscall"
+	"time"
 
 	"github.com/rpdg/winput/window"
 )
@@ -75,6 +76,7 @@ func Click(hwnd uintptr, x, y int32) error {
 	if err := post(hwnd, WM_MOUSEMOVE, 0, lparam); err != nil {
 		return err
 	}
+	time.Sleep(20 * time.Millisecond)
 
 	if err := post(hwnd, WM_LBUTTONDOWN, MK_LBUTTON, lparam); err != nil {
 		return err
@@ -87,6 +89,7 @@ func ClickRight(hwnd uintptr, x, y int32) error {
 	if err := post(hwnd, WM_MOUSEMOVE, 0, lparam); err != nil {
 		return err
 	}
+	time.Sleep(20 * time.Millisecond)
 
 	if err := post(hwnd, WM_RBUTTONDOWN, MK_RBUTTON, lparam); err != nil {
 		return err
@@ -99,6 +102,7 @@ func ClickMiddle(hwnd uintptr, x, y int32) error {
 	if err := post(hwnd, WM_MOUSEMOVE, 0, lparam); err != nil {
 		return err
 	}
+	time.Sleep(20 * time.Millisecond)
 
 	if err := post(hwnd, WM_MBUTTONDOWN, MK_MBUTTON, lparam); err != nil {
 		return err
@@ -111,6 +115,7 @@ func DoubleClick(hwnd uintptr, x, y int32) error {
 	if err := post(hwnd, WM_MOUSEMOVE, 0, lparam); err != nil {
 		return err
 	}
+	time.Sleep(20 * time.Millisecond)
 
 	if err := post(hwnd, WM_LBUTTONDBLCLK, MK_LBUTTON, lparam); err != nil {
 		return err

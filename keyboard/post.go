@@ -15,7 +15,7 @@ const (
 	MAPVK_VSC_TO_VK = 1
 )
 
-func mapScanCodeToVK(sc Key) uintptr {
+func MapScanCodeToVK(sc Key) uintptr {
 	r, _, _ := window.ProcMapVirtualKeyW.Call(uintptr(sc), MAPVK_VSC_TO_VK)
 	return r
 }
@@ -32,7 +32,7 @@ func post(hwnd uintptr, msg uint32, wparam uintptr, lparam uintptr) error {
 }
 
 func KeyDown(hwnd uintptr, key Key) error {
-	vk := mapScanCodeToVK(key)
+	vk := MapScanCodeToVK(key)
 	if vk == 0 {
 		return fmt.Errorf("unsupported key: %d", key)
 	}
@@ -50,7 +50,7 @@ func KeyDown(hwnd uintptr, key Key) error {
 }
 
 func KeyUp(hwnd uintptr, key Key) error {
-	vk := mapScanCodeToVK(key)
+	vk := MapScanCodeToVK(key)
 	if vk == 0 {
 		return fmt.Errorf("unsupported key: %d", key)
 	}
@@ -74,7 +74,7 @@ func Press(hwnd uintptr, key Key) error {
 	if err := KeyDown(hwnd, key); err != nil {
 		return err
 	}
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(30 * time.Millisecond)
 	return KeyUp(hwnd, key)
 }
 
@@ -86,8 +86,9 @@ func Type(hwnd uintptr, text string) error {
 				if err := KeyDown(hwnd, KeyShift); err != nil {
 					return err
 				}
+				// Small delay for modifier to register
+				time.Sleep(10 * time.Millisecond)
 				if err := Press(hwnd, k); err != nil {
-					KeyUp(hwnd, KeyShift) // Try cleanup
 					return err
 				}
 				if err := KeyUp(hwnd, KeyShift); err != nil {
@@ -99,7 +100,7 @@ func Type(hwnd uintptr, text string) error {
 				}
 			}
 		}
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(30 * time.Millisecond)
 	}
 	return nil
 }

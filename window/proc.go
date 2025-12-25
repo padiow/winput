@@ -22,8 +22,14 @@ var (
 	ProcClientToScreen    = user32.NewProc("ClientToScreen")
 	ProcGetClientRect     = user32.NewProc("GetClientRect")
 	ProcGetCursorPos      = user32.NewProc("GetCursorPos")
+	ProcSetCursorPos      = user32.NewProc("SetCursorPos")
+	ProcMouseEvent        = user32.NewProc("mouse_event")
+	ProcKeybdEvent        = user32.NewProc("keybd_event")
 	ProcMonitorFromPoint  = user32.NewProc("MonitorFromPoint")
 	ProcMonitorFromWindow = user32.NewProc("MonitorFromWindow")
+	ProcEnumDisplayMonitors = user32.NewProc("EnumDisplayMonitors")
+	ProcGetMonitorInfoW     = user32.NewProc("GetMonitorInfoW")
+	ProcGetSystemMetrics    = user32.NewProc("GetSystemMetrics")
 
 	ProcGetDpiForWindow           = user32.NewProc("GetDpiForWindow") // Win10+
 	ProcSetProcessDpiAwarenessCtx = user32.NewProc("SetProcessDpiAwarenessContext")

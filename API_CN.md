@@ -117,6 +117,58 @@ SetHIDLibraryPath 设置 `interception.dll` 的自定义加载路径。
 默认情况下，库会在系统 PATH 或当前目录下查找 DLL。
 必须在启用 `BackendHID` **之前** 调用此函数。
 
+### func MoveMouseTo
+
+```go
+func MoveMouseTo(x, y int32) error
+```
+MoveMouseTo 将鼠标光标移动到绝对屏幕坐标（虚拟桌面）。
+适用于 HWND 不可靠的视觉自动化场景（如 Electron 应用）。
+*   **消息后端**: 使用 `SetCursorPos`（瞬间完成）。
+*   **HID 后端**: 使用拟人化轨迹。
+
+### func ClickMouseAt
+
+```go
+func ClickMouseAt(x, y int32) error
+```
+ClickMouseAt 将鼠标移动到指定屏幕坐标并执行左键点击。
+
+### func KeyDown
+
+```go
+func KeyDown(k Key) error
+```
+KeyDown 模拟全局按键按下事件。
+
+### func KeyUp
+
+```go
+func KeyUp(k Key) error
+```
+KeyUp 模拟全局按键抬起事件。
+
+### func Press
+
+```go
+func Press(k Key) error
+```
+Press 模拟一次全局按键（按下+抬起）。
+
+### func PressHotkey
+
+```go
+func PressHotkey(keys ...Key) error
+```
+PressHotkey 模拟全局组合键。
+
+### func Type
+
+```go
+func Type(text string) error
+```
+Type 模拟全局文本输入（通过模拟按键序列）。
+
 ## 类型
 
 ### type Backend
