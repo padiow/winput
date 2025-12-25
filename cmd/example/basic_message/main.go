@@ -28,8 +28,7 @@ func main() {
 	// 3. Input Operations
 	// Type text
 	fmt.Println("👉 Typing text...")
-	if err := w.Type("Hello from winput (Message Backend)!
-"); err != nil {
+	if err := w.Type("Hello from winput (Message Backend)!\n"); err != nil {
 		if errors.Is(err, winput.ErrWindowNotVisible) {
 			log.Fatal("❌ Window is minimized. Please restore it.")
 		}
@@ -47,4 +46,3 @@ func main() {
 
 	fmt.Println("=== Done ===")
 }
-

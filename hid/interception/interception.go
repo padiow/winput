@@ -79,8 +79,10 @@ func getProc(h syscall.Handle, name string) uintptr {
 
 // Types
 
-type Context uintptr
-type Device int
+type (
+	Context uintptr
+	Device  int
+)
 
 // Go-friendly structs
 type MouseStroke struct {
@@ -175,7 +177,7 @@ func SendMouse(ctx Context, dev Device, s *MouseStroke) error {
 	if procSend == 0 {
 		return fmt.Errorf("interception_send missing")
 	}
-	
+
 	buf := make([]byte, strokeSize)
 	binary.LittleEndian.PutUint16(buf[0:2], s.State)
 	binary.LittleEndian.PutUint16(buf[2:4], s.Flags)

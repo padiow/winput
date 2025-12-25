@@ -35,7 +35,7 @@ func Monitors() ([]Monitor, error) {
 	cb := syscall.NewCallback(func(hMonitor uintptr, hdcMonitor uintptr, lprcMonitor uintptr, dwData uintptr) uintptr {
 		var mi monitorInfoExW
 		mi.Size = uint32(unsafe.Sizeof(mi))
-		
+
 		ret, _, _ := window.ProcGetMonitorInfoW.Call(hMonitor, uintptr(unsafe.Pointer(&mi)))
 		if ret != 0 {
 			mon := Monitor{
@@ -71,9 +71,9 @@ type rectStruct struct {
 }
 
 type monitorInfoExW struct {
-	Size      uint32
-	Monitor   rectStruct
-	Work      rectStruct
-	Flags     uint32
-	Device    [32]uint16
+	Size    uint32
+	Monitor rectStruct
+	Work    rectStruct
+	Flags   uint32
+	Device  [32]uint16
 }

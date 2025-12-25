@@ -45,7 +45,7 @@ func KeyDown(hwnd uintptr, key Key) error {
 	// 30: Previous Key State (0 for first press)
 	// 31: Transition State (0 for key down)
 	lparam := uintptr(1) | (uintptr(key) << 16)
-	
+
 	return post(hwnd, WM_KEYDOWN, vk, lparam)
 }
 

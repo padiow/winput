@@ -71,7 +71,7 @@ func Move(hwnd uintptr, x, y int32) error {
 func Click(hwnd uintptr, x, y int32) error {
 	lparam := makeLParam(x, y)
 	// We should propagate errors. If Move fails, Click should probably fail?
-	// But Move (WM_MOUSEMOVE) failure might be ignorable? 
+	// But Move (WM_MOUSEMOVE) failure might be ignorable?
 	// Better to be strict as per review.
 	if err := post(hwnd, WM_MOUSEMOVE, 0, lparam); err != nil {
 		return err

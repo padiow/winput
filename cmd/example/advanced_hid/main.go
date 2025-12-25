@@ -16,7 +16,7 @@ func main() {
 
 	// 1. Setup HID
 	// You can specify path to dll if not in current dir
-	winput.SetHIDLibraryPath("interception.dll") 
+	winput.SetHIDLibraryPath("interception.dll")
 	winput.SetBackend(winput.BackendHID)
 
 	// 2. Find Window (Optional in HID mode, but good for relative coords)
@@ -26,7 +26,7 @@ func main() {
 		return
 	}
 	target := w[0]
-	
+
 	// Bring to front (User manual action required usually)
 	fmt.Println("Please focus the Notepad window within 3 seconds...")
 	time.Sleep(3 * time.Second)
@@ -44,6 +44,6 @@ func main() {
 	fmt.Println("👉 Typing via Hardware Simulation...")
 	target.Click(100, 100) // Click to focus caret
 	target.Type("HID Input Test")
-	
+
 	fmt.Println("=== Done ===")
 }

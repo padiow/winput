@@ -30,30 +30,39 @@
 // It follows an "explicit failure" principle, where backend initialization errors are reported
 // on the first attempted action.
 //
+// 6. Thread Safety:
+// All public input methods are thread-safe and serialized using an internal mutex. This prevents state pollution
+// (e.g., mixing Shift states from concurrent operations) and race conditions when switching backends.
+//
 // Example:
 //
-//	// 1. Find the window
-//	w, err := winput.FindByTitle("Untitled - Notepad")
-//	if err != nil {
-//	    log.Fatal(winput.ErrWindowNotFound)
-//	}
+//	 // For complete examples, see cmd/example/
+//	 // - basic_message: Background automation for standard apps
+//	 // - global_vision: Electron/Game automation using screen coordinates
+//	 // - advanced_hid: Hardware level simulation
 //
-//	// 2. Setup DPI awareness (optional but recommended)
-//	winput.EnablePerMonitorDPI()
+//		// 1. Find the window
+//		w, err := winput.FindByTitle("Untitled - Notepad")
+//		if err != nil {
+//		    log.Fatal(winput.ErrWindowNotFound)
+//		}
 //
-//	// 3. Perform actions (using default Message backend)
-//	w.Click(100, 100)       // Left click
-//	w.ClickRight(100, 100)  // Right click
-//	w.Scroll(100, 100, 120) // Vertical scroll
+//		// 2. Setup DPI awareness (optional but recommended)
+//		winput.EnablePerMonitorDPI()
 //
-//	w.Type("Hello World!")  // Automatically handles Shift for 'H', 'W', and '!'
-//	w.Press(winput.KeyEnter)
+//		// 3. Perform actions (using default Message backend)
+//		w.Click(100, 100)       // Left click
+//		w.ClickRight(100, 100)  // Right click
+//		w.Scroll(100, 100, 120) // Vertical scroll
 //
-//	// 4. Global Input (Visual Automation / Electron)
-//	// winput.MoveMouseTo(1920, 500)
-//	// winput.ClickMouseAt(1920, 500)
+//		w.Type("Hello World!")  // Automatically handles Shift for 'H', 'W', and '!'
+//		w.Press(winput.KeyEnter)
 //
-//	// 5. Switch to HID backend for hardware-level simulation
-//	// winput.SetHIDLibraryPath("libs/interception.dll")
-//	// winput.SetBackend(winput.BackendHID)
+//		// 4. Global Input (Visual Automation / Electron)
+//		// winput.MoveMouseTo(1920, 500)
+//		// winput.ClickMouseAt(1920, 500)
+//
+//		// 5. Switch to HID backend for hardware-level simulation
+//		// winput.SetHIDLibraryPath("libs/interception.dll")
+//		// winput.SetBackend(winput.BackendHID)
 package winput

@@ -16,6 +16,7 @@
     *   内置 `ScreenToClient` / `ClientToScreen` 转换。
     *   **DPI 感知**: 支持 Per-Monitor DPI 缩放处理。
 *   **安全可靠**:
+    *   **并发安全 (Thread-Safe)**: 全局输入序列化 (`inputMutex`) 确保操作原子性。
     *   显式错误返回 (Explicit Errors)，拒绝静默失败。
     *   类型安全的 Key 定义 (避免直接使用裸扫描码)。
 
@@ -79,7 +80,27 @@ go get github.com/rpdg/winput
     winput.SetBackend(winput.BackendHID)
     ```
 
-## 快速开始
+## 使用示例
+
+### 1. 基础后台交互 (Message Backend)
+适用于标准窗口（如记事本）。后台运行，不占用鼠标。
+```bash
+go run cmd/example/basic_message/main.go
+```
+
+### 2. 全局视觉自动化 (Electron / 游戏)
+适用于 HWND 不可靠的应用 (VS Code, Discord)。使用绝对屏幕坐标。
+```bash
+go run cmd/example/global_vision/main.go
+```
+
+### 3. HID 硬件模拟
+模拟物理硬件输入。需要驱动。
+```bash
+go run cmd/example/advanced_hid/main.go
+```
+
+## 快速开始 (代码片段)
 
 ```go
 package main

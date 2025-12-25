@@ -16,6 +16,7 @@ It provides a unified, window-centric API that abstracts the underlying input me
     *   Built-in `ScreenToClient` / `ClientToScreen` conversion.
     *   **DPI Awareness**: Helpers for Per-Monitor DPI scaling.
 *   **Safety & Reliability**:
+    *   **Thread-Safe**: Global input serialization ensures atomic operations (`inputMutex`).
     *   Explicit error returns (no silent failures).
     *   Type-safe Key definitions.
 
@@ -79,7 +80,27 @@ To use the HID backend:
     winput.SetBackend(winput.BackendHID)
     ```
 
-## Quick Start
+## Usage Examples
+
+### 1. Basic Message Backend (Standard Apps)
+Ideal for standard windows (Notepad, etc.). Works in background.
+```bash
+go run cmd/example/basic_message/main.go
+```
+
+### 2. Global Vision Automation (Electron / Games)
+For apps where HWND is unreliable (VS Code, Discord, Games). Uses absolute screen coordinates.
+```bash
+go run cmd/example/global_vision/main.go
+```
+
+### 3. HID Backend (Hardware Simulation)
+Simulates physical hardware input. Requires driver.
+```bash
+go run cmd/example/advanced_hid/main.go
+```
+
+## Quick Start (Code Snippet)
 
 ```go
 package main

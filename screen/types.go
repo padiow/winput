@@ -17,9 +17,9 @@ type Rect struct {
 
 // Monitor represents a physical display device.
 type Monitor struct {
-	Handle  uintptr
-	Bounds  Rect
-	WorkArea Rect // Excludes taskbar
-	Primary bool
+	Handle     uintptr
+	Bounds     Rect
+	WorkArea   Rect // Excludes taskbar
+	Primary    bool
 	DeviceName string
 }

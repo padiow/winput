@@ -83,7 +83,7 @@ func Close() error {
 	mouseDev = 0
 	keyboardDev = 0
 	initialized = false
-	
+
 	interception.Unload()
 	return nil
 }
@@ -106,7 +106,7 @@ func humanSleep(base int) {
 		maxJitter = 1
 	}
 	jitter := rng.Intn(maxJitter*2+1) - maxJitter // -maxJitter to +maxJitter
-	
+
 	duration := base + jitter
 	if duration < 0 {
 		duration = 0
@@ -195,7 +195,7 @@ func Click(x, y int32) error {
 	if err := Move(x, y); err != nil {
 		return err
 	}
-	
+
 	lCtx, lDev, err := getMouse()
 	if err != nil {
 		return err
@@ -222,7 +222,7 @@ func ClickRight(x, y int32) error {
 	if err := Move(x, y); err != nil {
 		return err
 	}
-	
+
 	lCtx, lDev, err := getMouse()
 	if err != nil {
 		return err
@@ -248,7 +248,7 @@ func ClickMiddle(x, y int32) error {
 	if err := Move(x, y); err != nil {
 		return err
 	}
-	
+
 	lCtx, lDev, err := getMouse()
 	if err != nil {
 		return err

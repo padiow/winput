@@ -94,7 +94,7 @@ var (
 	currentBackend Backend = BackendMessage
 	backendMutex   sync.RWMutex
 	// inputMutex ensures global input serialization
-	inputMutex     sync.Mutex
+	inputMutex sync.Mutex
 )
 
 func SetBackend(b Backend) {
@@ -149,7 +149,7 @@ func moveImpl(cb Backend, hwnd uintptr, x, y int32, isRelative bool) error {
 			return hid.Move(sx, sy)
 		}
 	}
-	
+
 	if isRelative {
 		sx, sy, err := window.GetCursorPos()
 		if err != nil {
@@ -339,7 +339,7 @@ func MoveMouseTo(x, y int32) error {
 	if getBackend() == BackendHID {
 		return hid.Move(x, y)
 	}
-	
+
 	r, _, _ := window.ProcSetCursorPos.Call(uintptr(x), uintptr(y))
 	if r == 0 {
 		return fmt.Errorf("SetCursorPos failed")
@@ -354,7 +354,7 @@ func ClickMouseAt(x, y int32) error {
 	if err := checkBackend(); err != nil {
 		return err
 	}
-	
+
 	if getBackend() == BackendHID {
 		return hid.Click(x, y)
 	}
@@ -448,7 +448,7 @@ const (
 	KeyF12       = keyboard.KeyF12
 	KeyNumLock   = keyboard.KeyNumLock
 	KeyScroll    = keyboard.KeyScroll
-	
+
 	KeyHome      = keyboard.KeyHome
 	KeyArrowUp   = keyboard.KeyArrowUp
 	KeyPageUp    = keyboard.KeyPageUp
@@ -471,26 +471,40 @@ func KeyFromRune(r rune) (Key, bool) {
 func (w *Window) KeyDown(key Key) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-	if err := w.checkReady(); err != nil { return err }
-	if err := checkBackend(); err != nil { return err }
+	if err := w.checkReady(); err != nil {
+		return err
+	}
+	if err := checkBackend(); err != nil {
+		return err
+	}
 	return keyDownImpl(getBackend(), w.HWND, key)
 }
 
 func (w *Window) KeyUp(key Key) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-	if err := w.checkReady(); err != nil { return err }
-	if err := checkBackend(); err != nil { return err }
+	if err := w.checkReady(); err != nil {
+		return err
+	}
+	if err := checkBackend(); err != nil {
+		return err
+	}
 	return keyUpImpl(getBackend(), w.HWND, key)
 }
 
 func (w *Window) Press(key Key) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-	if err := w.checkReady(); err != nil { return err }
-	if err := checkBackend(); err != nil { return err }
-	
-	if err := keyDownImpl(getBackend(), w.HWND, key); err != nil { return err }
+	if err := w.checkReady(); err != nil {
+		return err
+	}
+	if err := checkBackend(); err != nil {
+		return err
+	}
+
+	if err := keyDownImpl(getBackend(), w.HWND, key); err != nil {
+		return err
+	}
 	time.Sleep(30 * time.Millisecond)
 	return keyUpImpl(getBackend(), w.HWND, key)
 }
@@ -498,17 +512,25 @@ func (w *Window) Press(key Key) error {
 func (w *Window) PressHotkey(keys ...Key) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-	if err := w.checkReady(); err != nil { return err }
-	if err := checkBackend(); err != nil { return err }
-	
+	if err := w.checkReady(); err != nil {
+		return err
+	}
+	if err := checkBackend(); err != nil {
+		return err
+	}
+
 	cb := getBackend()
 	for _, k := range keys {
-		if err := keyDownImpl(cb, w.HWND, k); err != nil { return err }
+		if err := keyDownImpl(cb, w.HWND, k); err != nil {
+			return err
+		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	time.Sleep(30 * time.Millisecond)
 	for i := len(keys) - 1; i >= 0; i-- {
-		if err := keyUpImpl(cb, w.HWND, keys[i]); err != nil { return err }
+		if err := keyUpImpl(cb, w.HWND, keys[i]); err != nil {
+			return err
+		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	return nil
@@ -517,22 +539,30 @@ func (w *Window) PressHotkey(keys ...Key) error {
 func (w *Window) Type(text string) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-	if err := w.checkReady(); err != nil { return err }
-	if err := checkBackend(); err != nil { return err }
-	
+	if err := w.checkReady(); err != nil {
+		return err
+	}
+	if err := checkBackend(); err != nil {
+		return err
+	}
+
 	cb := getBackend()
 	for _, r := range text {
 		k, shifted, ok := keyboard.LookupKey(r)
-		if !ok { return ErrUnsupportedKey }
+		if !ok {
+			return ErrUnsupportedKey
+		}
 
 		if shifted {
-			if err := keyDownImpl(cb, w.HWND, KeyShift); err != nil { return err }
+			if err := keyDownImpl(cb, w.HWND, KeyShift); err != nil {
+				return err
+			}
 			time.Sleep(10 * time.Millisecond)
-			
+
 			keyDownImpl(cb, w.HWND, k)
 			time.Sleep(30 * time.Millisecond)
 			keyUpImpl(cb, w.HWND, k)
-			
+
 			keyUpImpl(cb, w.HWND, KeyShift)
 		} else {
 			keyDownImpl(cb, w.HWND, k)
@@ -549,23 +579,31 @@ func (w *Window) Type(text string) error {
 func KeyDown(k Key) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-	if err := checkBackend(); err != nil { return err }
+	if err := checkBackend(); err != nil {
+		return err
+	}
 	return keyDownImpl(getBackend(), 0, k)
 }
 
 func KeyUp(k Key) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-	if err := checkBackend(); err != nil { return err }
+	if err := checkBackend(); err != nil {
+		return err
+	}
 	return keyUpImpl(getBackend(), 0, k)
 }
 
 func Press(k Key) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-	if err := checkBackend(); err != nil { return err }
-	
-	if err := keyDownImpl(getBackend(), 0, k); err != nil { return err }
+	if err := checkBackend(); err != nil {
+		return err
+	}
+
+	if err := keyDownImpl(getBackend(), 0, k); err != nil {
+		return err
+	}
 	time.Sleep(30 * time.Millisecond)
 	return keyUpImpl(getBackend(), 0, k)
 }
@@ -573,16 +611,22 @@ func Press(k Key) error {
 func PressHotkey(keys ...Key) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-	if err := checkBackend(); err != nil { return err }
-	
+	if err := checkBackend(); err != nil {
+		return err
+	}
+
 	cb := getBackend()
 	for _, k := range keys {
-		if err := keyDownImpl(cb, 0, k); err != nil { return err }
+		if err := keyDownImpl(cb, 0, k); err != nil {
+			return err
+		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	time.Sleep(30 * time.Millisecond)
 	for i := len(keys) - 1; i >= 0; i-- {
-		if err := keyUpImpl(cb, 0, keys[i]); err != nil { return err }
+		if err := keyUpImpl(cb, 0, keys[i]); err != nil {
+			return err
+		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	return nil
@@ -591,21 +635,25 @@ func PressHotkey(keys ...Key) error {
 func Type(text string) error {
 	inputMutex.Lock()
 	defer inputMutex.Unlock()
-	if err := checkBackend(); err != nil { return err }
-	
+	if err := checkBackend(); err != nil {
+		return err
+	}
+
 	cb := getBackend()
 	for _, r := range text {
 		k, shifted, ok := keyboard.LookupKey(r)
-		if !ok { return ErrUnsupportedKey }
+		if !ok {
+			return ErrUnsupportedKey
+		}
 
 		if shifted {
 			keyDownImpl(cb, 0, KeyShift)
 			time.Sleep(10 * time.Millisecond)
-			
+
 			keyDownImpl(cb, 0, k)
 			time.Sleep(30 * time.Millisecond)
 			keyUpImpl(cb, 0, k)
-			
+
 			keyUpImpl(cb, 0, KeyShift)
 		} else {
 			keyDownImpl(cb, 0, k)
@@ -615,6 +663,10 @@ func Type(text string) error {
 		time.Sleep(30 * time.Millisecond)
 	}
 	return nil
+}
+
+func GetCursorPos() (int32, int32, error) {
+	return window.GetCursorPos()
 }
 
 // -----------------------------------------------------------------------------
