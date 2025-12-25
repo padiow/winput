@@ -27,7 +27,8 @@ It provides a unified, window-centric API that abstracts the underlying input me
 *   **Cons**: 
     *   **Modifier Keys**: `PostMessage` does **not** update global keyboard state. Apps checking `GetKeyState` (e.g. for Ctrl+C) might fail.
     *   **UIPI**: Cannot send messages to apps running as Administrator if your app is not.
-    *   **Compatibility**: Some games (DirectX/OpenGL) and frameworks (Qt/WPF sometimes) ignore these messages.
+    *   **Coordinates**: Limited to 16-bit signed integer range ([-32768, 32767]). Larger coordinates will be clipped.
+    *   **Compatibility**: Some games (DirectX/OpenGL/RawInput) and frameworks (Qt/WPF) ignore these messages.
 
 ### HID Backend
 *   **Mechanism**: Uses Interception driver (kernel-level).

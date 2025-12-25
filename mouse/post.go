@@ -25,18 +25,29 @@ const (
 	MK_MBUTTON = 0x0010
 )
 
+// clipToInt16 clips the value to the signed 16-bit range [-32768, 32767].
+func clipToInt16(v int32) int16 {
+	if v > 32767 {
+		return 32767
+	}
+	if v < -32768 {
+		return -32768
+	}
+	return int16(v)
+}
+
 // makeLParam packs two 16-bit integers into a 32-bit uintptr.
-// Note: It casts to int16 first to preserve sign behavior for negative coordinates.
+// Note: It clips coordinates to 16-bit signed range to prevent wrapping overflow.
 func makeLParam(x, y int32) uintptr {
-	lx := uint32(uint16(int16(x)))
-	ly := uint32(uint16(int16(y)))
+	lx := uint32(uint16(clipToInt16(x)))
+	ly := uint32(uint16(clipToInt16(y)))
 	return uintptr(lx | (ly << 16))
 }
 
 // makeWheelWParam packs delta (high word) and key states (low word).
 func makeWheelWParam(delta int32, keyFlags uint16) uintptr {
 	low := uint32(keyFlags)
-	high := uint32(uint16(int16(delta)))
+	high := uint32(uint16(clipToInt16(delta))) // Delta is also short
 	return uintptr((high << 16) | low)
 }
 

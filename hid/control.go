@@ -26,7 +26,7 @@ var (
 	mouseDev    interception.Device
 	keyboardDev interception.Device
 	initialized bool
-	initMutex   sync.Mutex
+	initMutex   sync.RWMutex
 )
 
 // Init initializes the Interception context and finds devices.
@@ -68,7 +68,7 @@ func Init() error {
 	return nil
 }
 
-// Close destroys the Interception context.
+// Close destroys the Interception context and unloads the DLL.
 func Close() error {
 	initMutex.Lock()
 	defer initMutex.Unlock()
@@ -84,14 +84,19 @@ func Close() error {
 	mouseDev = 0
 	keyboardDev = 0
 	initialized = false
+	
+	interception.Unload()
 	return nil
 }
 
 // EnsureInit checks initialization state.
 func EnsureInit() error {
+	initMutex.RLock()
 	if initialized {
+		initMutex.RUnlock()
 		return nil
 	}
+	initMutex.RUnlock()
 	return Init()
 }
 
@@ -100,12 +105,38 @@ func humanSleep(base int) {
 	time.Sleep(time.Duration(base+jitter) * time.Millisecond)
 }
 
+// Helper to safely get context and device for operations
+func getMouse() (interception.Context, interception.Device, error) {
+	if err := EnsureInit(); err != nil {
+		return 0, 0, err
+	}
+	initMutex.RLock()
+	defer initMutex.RUnlock()
+	if !initialized {
+		return 0, 0, fmt.Errorf("hid backend closed")
+	}
+	return ctx, mouseDev, nil
+}
+
+func getKeyboard() (interception.Context, interception.Device, error) {
+	if err := EnsureInit(); err != nil {
+		return 0, 0, err
+	}
+	initMutex.RLock()
+	defer initMutex.RUnlock()
+	if !initialized {
+		return 0, 0, fmt.Errorf("hid backend closed")
+	}
+	return ctx, keyboardDev, nil
+}
+
 // -----------------------------------------------------------------------------
 // Mouse
 // -----------------------------------------------------------------------------
 
 func Move(targetX, targetY int32) error {
-	if err := EnsureInit(); err != nil {
+	lCtx, lDev, err := getMouse()
+	if err != nil {
 		return err
 	}
 
@@ -142,7 +173,7 @@ func Move(targetX, targetY int32) error {
 			Y:     dy,
 		}
 
-		if err := interception.SendMouse(ctx, mouseDev, &stroke); err != nil {
+		if err := interception.SendMouse(lCtx, lDev, &stroke); err != nil {
 			return err
 		}
 		time.Sleep(5 * time.Millisecond)
@@ -151,20 +182,27 @@ func Move(targetX, targetY int32) error {
 }
 
 func Click(x, y int32) error {
+	// Move handles its own context retrieval
 	if err := Move(x, y); err != nil {
 		return err
 	}
+	
+	lCtx, lDev, err := getMouse()
+	if err != nil {
+		return err
+	}
+
 	humanSleep(50)
 
 	down := interception.MouseStroke{State: interception.MouseStateLeftDown}
-	if err := interception.SendMouse(ctx, mouseDev, &down); err != nil {
+	if err := interception.SendMouse(lCtx, lDev, &down); err != nil {
 		return err
 	}
 
 	humanSleep(60)
 
 	up := interception.MouseStroke{State: interception.MouseStateLeftUp}
-	if err := interception.SendMouse(ctx, mouseDev, &up); err != nil {
+	if err := interception.SendMouse(lCtx, lDev, &up); err != nil {
 		return err
 	}
 
@@ -175,17 +213,23 @@ func ClickRight(x, y int32) error {
 	if err := Move(x, y); err != nil {
 		return err
 	}
+	
+	lCtx, lDev, err := getMouse()
+	if err != nil {
+		return err
+	}
+
 	humanSleep(50)
 
 	down := interception.MouseStroke{State: interception.MouseStateRightDown}
-	if err := interception.SendMouse(ctx, mouseDev, &down); err != nil {
+	if err := interception.SendMouse(lCtx, lDev, &down); err != nil {
 		return err
 	}
 
 	humanSleep(60)
 
 	up := interception.MouseStroke{State: interception.MouseStateRightUp}
-	if err := interception.SendMouse(ctx, mouseDev, &up); err != nil {
+	if err := interception.SendMouse(lCtx, lDev, &up); err != nil {
 		return err
 	}
 	return nil
@@ -195,17 +239,23 @@ func ClickMiddle(x, y int32) error {
 	if err := Move(x, y); err != nil {
 		return err
 	}
+	
+	lCtx, lDev, err := getMouse()
+	if err != nil {
+		return err
+	}
+
 	humanSleep(50)
 
 	down := interception.MouseStroke{State: interception.MouseStateMiddleDown}
-	if err := interception.SendMouse(ctx, mouseDev, &down); err != nil {
+	if err := interception.SendMouse(lCtx, lDev, &down); err != nil {
 		return err
 	}
 
 	humanSleep(60)
 
 	up := interception.MouseStroke{State: interception.MouseStateMiddleUp}
-	if err := interception.SendMouse(ctx, mouseDev, &up); err != nil {
+	if err := interception.SendMouse(lCtx, lDev, &up); err != nil {
 		return err
 	}
 	return nil
@@ -220,7 +270,8 @@ func DoubleClick(x, y int32) error {
 }
 
 func Scroll(delta int32) error {
-	if err := EnsureInit(); err != nil {
+	lCtx, lDev, err := getMouse()
+	if err != nil {
 		return err
 	}
 
@@ -228,7 +279,7 @@ func Scroll(delta int32) error {
 		State:   interception.MouseStateWheel,
 		Rolling: int16(delta),
 	}
-	if err := interception.SendMouse(ctx, mouseDev, &stroke); err != nil {
+	if err := interception.SendMouse(lCtx, lDev, &stroke); err != nil {
 		return err
 	}
 	return nil
@@ -239,34 +290,40 @@ func Scroll(delta int32) error {
 // -----------------------------------------------------------------------------
 
 func KeyDown(scanCode uint16) error {
-	if err := EnsureInit(); err != nil {
+	lCtx, lDev, err := getKeyboard()
+	if err != nil {
 		return err
 	}
+
 	s := interception.KeyStroke{
 		Code:  scanCode,
 		State: interception.KeyStateDown,
 	}
-	if err := interception.SendKey(ctx, keyboardDev, &s); err != nil {
+	if err := interception.SendKey(lCtx, lDev, &s); err != nil {
 		return err
 	}
 	return nil
 }
 
 func KeyUp(scanCode uint16) error {
-	if err := EnsureInit(); err != nil {
+	lCtx, lDev, err := getKeyboard()
+	if err != nil {
 		return err
 	}
+
 	s := interception.KeyStroke{
 		Code:  scanCode,
 		State: interception.KeyStateUp,
 	}
-	if err := interception.SendKey(ctx, keyboardDev, &s); err != nil {
+	if err := interception.SendKey(lCtx, lDev, &s); err != nil {
 		return err
 	}
 	return nil
 }
 
 func Press(scanCode uint16) error {
+	// Note: We retrieve context inside KeyDown/KeyUp individually.
+	// This is fine and thread-safe.
 	if err := KeyDown(scanCode); err != nil {
 		return err
 	}

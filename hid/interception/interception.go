@@ -2,6 +2,7 @@ package interception
 
 import (
 	"fmt"
+	"runtime"
 	"syscall"
 	"unsafe"
 )
@@ -55,6 +56,19 @@ func Load() error {
 	}
 
 	return nil
+}
+
+// Unload frees the loaded DLL.
+func Unload() {
+	if dllHandle != 0 {
+		syscall.FreeLibrary(dllHandle)
+		dllHandle = 0
+		procCreateContext = 0
+		procDestroyContext = 0
+		procIsMouse = 0
+		procIsKeyboard = 0
+		procSend = 0
+	}
 }
 
 func getProc(h syscall.Handle, name string) uintptr {
@@ -197,5 +211,7 @@ func send(ctx Context, dev Device, buf []byte) error {
 		}
 		return ErrSendFailed
 	}
+	// Ensure buf is kept alive until syscall returns (though syscall usually guarantees this, explicit is safer)
+	runtime.KeepAlive(buf)
 	return nil
 }
