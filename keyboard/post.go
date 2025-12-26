@@ -25,9 +25,9 @@ func post(hwnd uintptr, msg uint32, wparam uintptr, lparam uintptr) error {
 	r, _, e := window.ProcPostMessageW.Call(hwnd, uintptr(msg), wparam, lparam)
 	if r == 0 {
 		if errno, ok := e.(syscall.Errno); ok && errno != 0 {
-			return fmt.Errorf("PostMessageW failed: %w", errno)
+			return fmt.Errorf("%w: %v", window.ErrPostMessageFailed, errno)
 		}
-		return fmt.Errorf("PostMessageW failed")
+		return window.ErrPostMessageFailed
 	}
 	return nil
 }
@@ -37,7 +37,6 @@ func KeyDown(hwnd uintptr, key Key) error {
 	if vk == 0 {
 		return fmt.Errorf("unsupported key: %d", key)
 	}
-
 	// LParam for WM_KEYDOWN:
 	// 0-15: Repeat count (1)
 	// 16-23: Scan code
@@ -54,7 +53,6 @@ func KeyUp(hwnd uintptr, key Key) error {
 	if vk == 0 {
 		return fmt.Errorf("unsupported key: %d", key)
 	}
-
 	// LParam for WM_KEYUP:
 	// 0-15: Repeat count (1)
 	// 16-23: Scan code
@@ -63,7 +61,6 @@ func KeyUp(hwnd uintptr, key Key) error {
 	// 30: Previous Key State (1, always down before up)
 	// 31: Transition State (1, key is being released)
 	lparam := uintptr(1) | (uintptr(key) << 16) | (1 << 30) | (1 << 31)
-
 	return post(hwnd, WM_KEYUP, vk, lparam)
 }
 

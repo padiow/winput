@@ -17,6 +17,10 @@ func SetLibraryPath(path string) {
 	interception.SetLibraryPath(path)
 }
 
+const (
+	MaxInterceptionDevices = 20
+)
+
 // Use a local random source instead of global rand
 var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 
@@ -25,7 +29,10 @@ var (
 	mouseDev    interception.Device
 	keyboardDev interception.Device
 	initialized bool
-	initMutex   sync.RWMutex
+	// initMutex protects the initialized state and the context/device handles.
+	// RLock is held during ANY input operation to prevent Close() from destroying
+	// the context mid-operation.
+	initMutex sync.RWMutex
 )
 
 // Init initializes the Interception context and finds devices.
@@ -38,16 +45,17 @@ func Init() error {
 	}
 
 	if err := interception.Load(); err != nil {
-		return err // Will be wrapped by winput
+		return err
 	}
 
 	ctx = interception.CreateContext()
 	if ctx == 0 {
+		interception.Unload()
 		return ErrDriverNotInstalled
 	}
 
-	// Simple device discovery: iterate 1..20
-	for i := 1; i <= 20; i++ {
+	// Device discovery
+	for i := 1; i <= MaxInterceptionDevices; i++ {
 		dev := interception.Device(i)
 		if interception.IsMouse(dev) && mouseDev == 0 {
 			mouseDev = dev
@@ -59,6 +67,7 @@ func Init() error {
 
 	if mouseDev == 0 && keyboardDev == 0 {
 		interception.DestroyContext(ctx)
+		interception.Unload()
 		ctx = 0
 		return fmt.Errorf("no interception devices found")
 	}
@@ -100,12 +109,11 @@ func EnsureInit() error {
 }
 
 func humanSleep(base int) {
-	// Base +/- Jitter (max base/3)
 	maxJitter := base / 3
 	if maxJitter == 0 {
 		maxJitter = 1
 	}
-	jitter := rng.Intn(maxJitter*2+1) - maxJitter // -maxJitter to +maxJitter
+	jitter := rng.Intn(maxJitter*2+1) - maxJitter
 
 	duration := base + jitter
 	if duration < 0 {
@@ -114,29 +122,30 @@ func humanSleep(base int) {
 	time.Sleep(time.Duration(duration) * time.Millisecond)
 }
 
-// Helper to safely get context and device for operations
-func getMouse() (interception.Context, interception.Device, error) {
+// Helper to acquire lock and return handles.
+// Caller MUST call unlock() when done.
+func acquireMouse() (interception.Context, interception.Device, func(), error) {
 	if err := EnsureInit(); err != nil {
-		return 0, 0, err
+		return 0, 0, nil, err
 	}
 	initMutex.RLock()
-	defer initMutex.RUnlock()
 	if !initialized {
-		return 0, 0, fmt.Errorf("hid backend closed")
+		initMutex.RUnlock()
+		return 0, 0, nil, fmt.Errorf("hid backend closed")
 	}
-	return ctx, mouseDev, nil
+	return ctx, mouseDev, initMutex.RUnlock, nil
 }
 
-func getKeyboard() (interception.Context, interception.Device, error) {
+func acquireKeyboard() (interception.Context, interception.Device, func(), error) {
 	if err := EnsureInit(); err != nil {
-		return 0, 0, err
+		return 0, 0, nil, err
 	}
 	initMutex.RLock()
-	defer initMutex.RUnlock()
 	if !initialized {
-		return 0, 0, fmt.Errorf("hid backend closed")
+		initMutex.RUnlock()
+		return 0, 0, nil, fmt.Errorf("hid backend closed")
 	}
-	return ctx, keyboardDev, nil
+	return ctx, keyboardDev, initMutex.RUnlock, nil
 }
 
 // -----------------------------------------------------------------------------
@@ -158,10 +167,11 @@ func max(a, b int32) int32 {
 }
 
 func Move(targetX, targetY int32) error {
-	lCtx, lDev, err := getMouse()
+	lCtx, lDev, unlock, err := acquireMouse()
 	if err != nil {
 		return err
 	}
+	defer unlock()
 
 	cx, cy, err := window.GetCursorPos()
 	if err != nil {
@@ -172,11 +182,20 @@ func Move(targetX, targetY int32) error {
 	dyTotal := abs(targetY - cy)
 	maxDist := max(dxTotal, dyTotal)
 
-	// Ensure step size < 100 to avoid large jumps that might look bot-like
-	// or cause issues with some drivers.
-	steps := int(maxDist / 80)
-	if steps < 20 {
+	// Adaptive steps calculation
+	var steps int
+	switch {
+	case maxDist < 100:
+		steps = int(maxDist / 5) // Fine control
+		if steps < 5 {
+			steps = 5
+		}
+	case maxDist < 500:
 		steps = 20
+	case maxDist < 1000:
+		steps = 30
+	default:
+		steps = 40 // Capped for speed
 	}
 
 	timeout := time.After(2 * time.Second)
@@ -199,13 +218,10 @@ func Move(targetX, targetY int32) error {
 		dx := nextX - curX
 		dy := nextY - curY
 
-		// Optimization: If very close (within jitter range), skip correction
-		// to avoid oscillation near the target.
 		if i > steps-5 && abs(dx) < 3 && abs(dy) < 3 {
 			continue
 		}
 
-		// Apply jitter only if not the final few steps
 		if i < steps-2 {
 			dx += int32(rng.Intn(3) - 1)
 			dy += int32(rng.Intn(3) - 1)
@@ -225,10 +241,10 @@ func Move(targetX, targetY int32) error {
 			return err
 		}
 
-		// Wait slightly longer to allow OS to update cursor pos
-		sleepTime := 6
-		if steps > 50 {
-			sleepTime = 3
+		// Adaptive sleep
+		sleepTime := 5
+		if steps > 30 {
+			sleepTime = 3 // Faster for long distances
 		}
 		time.Sleep(time.Duration(sleepTime) * time.Millisecond)
 	}
@@ -236,15 +252,18 @@ func Move(targetX, targetY int32) error {
 }
 
 func Click(x, y int32) error {
-	// Move handles its own context retrieval
+	// Move handles locking internally, but we need lock for Click actions too.
+	// It's okay to release lock between Move and Click, or we can hold it.
+	// For simplicity, we let Move do its thing (acquire/release), then we acquire again.
 	if err := Move(x, y); err != nil {
 		return err
 	}
 
-	lCtx, lDev, err := getMouse()
+	lCtx, lDev, unlock, err := acquireMouse()
 	if err != nil {
 		return err
 	}
+	defer unlock()
 
 	humanSleep(50)
 
@@ -268,10 +287,11 @@ func ClickRight(x, y int32) error {
 		return err
 	}
 
-	lCtx, lDev, err := getMouse()
+	lCtx, lDev, unlock, err := acquireMouse()
 	if err != nil {
 		return err
 	}
+	defer unlock()
 
 	humanSleep(50)
 
@@ -294,10 +314,11 @@ func ClickMiddle(x, y int32) error {
 		return err
 	}
 
-	lCtx, lDev, err := getMouse()
+	lCtx, lDev, unlock, err := acquireMouse()
 	if err != nil {
 		return err
 	}
+	defer unlock()
 
 	humanSleep(50)
 
@@ -324,10 +345,11 @@ func DoubleClick(x, y int32) error {
 }
 
 func Scroll(delta int32) error {
-	lCtx, lDev, err := getMouse()
+	lCtx, lDev, unlock, err := acquireMouse()
 	if err != nil {
 		return err
 	}
+	defer unlock()
 
 	stroke := interception.MouseStroke{
 		State:   interception.MouseStateWheel,
@@ -344,10 +366,11 @@ func Scroll(delta int32) error {
 // -----------------------------------------------------------------------------
 
 func KeyDown(scanCode uint16) error {
-	lCtx, lDev, err := getKeyboard()
+	lCtx, lDev, unlock, err := acquireKeyboard()
 	if err != nil {
 		return err
 	}
+	defer unlock()
 
 	s := interception.KeyStroke{
 		Code:  scanCode,
@@ -360,10 +383,11 @@ func KeyDown(scanCode uint16) error {
 }
 
 func KeyUp(scanCode uint16) error {
-	lCtx, lDev, err := getKeyboard()
+	lCtx, lDev, unlock, err := acquireKeyboard()
 	if err != nil {
 		return err
 	}
+	defer unlock()
 
 	s := interception.KeyStroke{
 		Code:  scanCode,
@@ -376,8 +400,8 @@ func KeyUp(scanCode uint16) error {
 }
 
 func Press(scanCode uint16) error {
-	// Note: We retrieve context inside KeyDown/KeyUp individually.
-	// This is fine and thread-safe.
+	// KeyDown and KeyUp will acquire/release locks individually.
+	// This is safe.
 	if err := KeyDown(scanCode); err != nil {
 		return err
 	}
