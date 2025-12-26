@@ -255,12 +255,30 @@ func Move(targetX, targetY int32) error {
 	return nil
 }
 
+// clickRaw performs a left click at current position without movement logic.
+// Caller must hold the lock/context.
+func clickRaw(ctx interception.Context, dev interception.Device) error {
+	// Pre-click delay (muscle memory)
+	humanSleep(20 + rng.Intn(20))
+
+	down := interception.MouseStroke{State: interception.MouseStateLeftDown}
+	if err := interception.SendMouse(ctx, dev, &down); err != nil {
+		return err
+	}
+
+	// Hold time
+	humanSleep(60 + rng.Intn(30))
+
+	up := interception.MouseStroke{State: interception.MouseStateLeftUp}
+	if err := interception.SendMouse(ctx, dev, &up); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Click simulates a left mouse button click at the current cursor position.
 // It triggers Move first to ensure correct context acquisition.
 func Click(x, y int32) error {
-	// Move handles locking internally, but we need lock for Click actions too.
-	// It's okay to release lock between Move and Click, or we can hold it.
-	// For simplicity, we let Move do its thing (acquire/release), then we acquire again.
 	if err := Move(x, y); err != nil {
 		return err
 	}
@@ -271,21 +289,10 @@ func Click(x, y int32) error {
 	}
 	defer unlock()
 
-	humanSleep(50)
+	// Stabilize after move
+	humanSleep(30 + rng.Intn(30))
 
-	down := interception.MouseStroke{State: interception.MouseStateLeftDown}
-	if err := interception.SendMouse(lCtx, lDev, &down); err != nil {
-		return err
-	}
-
-	humanSleep(60)
-
-	up := interception.MouseStroke{State: interception.MouseStateLeftUp}
-	if err := interception.SendMouse(lCtx, lDev, &up); err != nil {
-		return err
-	}
-
-	return nil
+	return clickRaw(lCtx, lDev)
 }
 
 // ClickRight simulates a right mouse button click at the current cursor position.
@@ -345,12 +352,32 @@ func ClickMiddle(x, y int32) error {
 }
 
 // DoubleClick simulates a left mouse button double-click at the current cursor position.
+// It moves ONCE, then clicks twice rapidly.
 func DoubleClick(x, y int32) error {
-	if err := Click(x, y); err != nil {
+	// 1. Move to target
+	if err := Move(x, y); err != nil {
 		return err
 	}
-	humanSleep(80)
-	return Click(x, y)
+
+	lCtx, lDev, unlock, err := acquireMouse()
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
+	// 2. Stabilize
+	humanSleep(30 + rng.Intn(30))
+
+	// 3. First Click
+	if err := clickRaw(lCtx, lDev); err != nil {
+		return err
+	}
+
+	// 4. Double Click Interval (60-100ms)
+	humanSleep(60 + rng.Intn(40))
+
+	// 5. Second Click (In place)
+	return clickRaw(lCtx, lDev)
 }
 
 // Scroll simulates a vertical mouse wheel scroll.

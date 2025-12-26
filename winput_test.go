@@ -230,7 +230,10 @@ func TestBackendHID(t *testing.T) {
 	})
 
 	t.Run("HID_DBL_CLICK", func(t *testing.T) {
-		winput.DoubleClickMouseAt(200, 200)
+		e := winput.DoubleClickMouseAt(200, 200)
+		if e != nil {
+			t.Error("HID double click error")
+		}
 	})
 }
 
