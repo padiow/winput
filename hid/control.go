@@ -257,8 +257,9 @@ func Move(targetX, targetY int32) error {
 
 // clickRaw performs a left click at current position without movement logic.
 // Caller must hold the lock/context.
-func clickRaw(ctx interception.Context, dev interception.Device) error {
-	// Pre-click delay (muscle memory)
+// minHold/maxHold define the duration (ms) the button remains pressed.
+func clickRaw(ctx interception.Context, dev interception.Device, minHold, maxHold int) error {
+	// Pre-click delay (muscle memory) - small jitter
 	humanSleep(20 + rng.Intn(20))
 
 	down := interception.MouseStroke{State: interception.MouseStateLeftDown}
@@ -267,7 +268,11 @@ func clickRaw(ctx interception.Context, dev interception.Device) error {
 	}
 
 	// Hold time
-	humanSleep(60 + rng.Intn(30))
+	hold := minHold
+	if maxHold > minHold {
+		hold += rng.Intn(maxHold - minHold)
+	}
+	time.Sleep(time.Duration(hold) * time.Millisecond)
 
 	up := interception.MouseStroke{State: interception.MouseStateLeftUp}
 	if err := interception.SendMouse(ctx, dev, &up); err != nil {
@@ -292,7 +297,8 @@ func Click(x, y int32) error {
 	// Stabilize after move
 	humanSleep(30 + rng.Intn(30))
 
-	return clickRaw(lCtx, lDev)
+	// Normal click: hold 60-90ms
+	return clickRaw(lCtx, lDev, 60, 90)
 }
 
 // ClickRight simulates a right mouse button click at the current cursor position.
@@ -352,7 +358,7 @@ func ClickMiddle(x, y int32) error {
 }
 
 // DoubleClick simulates a left mouse button double-click at the current cursor position.
-// It moves ONCE, then clicks twice rapidly.
+// It moves ONCE, then clicks twice rapidly and deterministically to ensure Windows recognizes the double-click event.
 func DoubleClick(x, y int32) error {
 	// 1. Move to target
 	if err := Move(x, y); err != nil {
@@ -365,19 +371,42 @@ func DoubleClick(x, y int32) error {
 	}
 	defer unlock()
 
-	// 2. Stabilize
-	humanSleep(30 + rng.Intn(30))
+	// 2. Stabilize (Wait for move to settle completely)
+	humanSleep(50)
 
-	// 3. First Click
-	if err := clickRaw(lCtx, lDev); err != nil {
+	// 3. Atomic Double Click Sequence (No Randomness)
+	// To ensure Windows recognizes this as a double click, we must respect the
+	// system's double-click time (usually 500ms) and spatial tolerance.
+	// We use fixed, short intervals to be safe and deterministic.
+
+	// First Click Down
+	down := interception.MouseStroke{State: interception.MouseStateLeftDown}
+	if err := interception.SendMouse(lCtx, lDev, &down); err != nil {
+		return err
+	}
+	time.Sleep(50 * time.Millisecond) // Fixed hold time
+
+	// First Click Up
+	up := interception.MouseStroke{State: interception.MouseStateLeftUp}
+	if err := interception.SendMouse(lCtx, lDev, &up); err != nil {
+		return err
+	}
+	
+	// Interval
+	time.Sleep(50 * time.Millisecond) // Fixed interval
+
+	// Second Click Down
+	if err := interception.SendMouse(lCtx, lDev, &down); err != nil {
+		return err
+	}
+	time.Sleep(50 * time.Millisecond) // Fixed hold time
+
+	// Second Click Up
+	if err := interception.SendMouse(lCtx, lDev, &up); err != nil {
 		return err
 	}
 
-	// 4. Double Click Interval (60-100ms)
-	humanSleep(60 + rng.Intn(40))
-
-	// 5. Second Click (In place)
-	return clickRaw(lCtx, lDev)
+	return nil
 }
 
 // Scroll simulates a vertical mouse wheel scroll.
