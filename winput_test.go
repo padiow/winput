@@ -228,6 +228,10 @@ func TestBackendHID(t *testing.T) {
 			t.Errorf("HID Type failed: %v", err)
 		}
 	})
+
+	t.Run("HID_DBL_CLICK", func(t *testing.T) {
+		winput.DoubleClickMouseAt(200, 200)
+	})
 }
 
 // -----------------------------------------------------------------------------

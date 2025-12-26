@@ -387,6 +387,46 @@ func ClickMouseAt(x, y int32) error {
 	return nil
 }
 
+// DoubleClickMouseAt moves to the specified screen coordinates and performs a left double-click.
+func DoubleClickMouseAt(x, y int32) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+	if err := checkBackend(); err != nil {
+		return err
+	}
+
+	if getBackend() == BackendHID {
+		return hid.DoubleClick(x, y)
+	}
+
+	// Message Backend Fallback
+	r, _, _ := window.ProcSetCursorPos.Call(uintptr(x), uintptr(y))
+	if r == 0 {
+		return fmt.Errorf("SetCursorPos failed")
+	}
+
+	// Double click = Down -> Up -> (delay) -> Down -> Up
+	// But standard mouse_event doesn't have DBLCLK. We just click twice fast.
+	const (
+		MOUSEEVENTF_LEFTDOWN = 0x0002
+		MOUSEEVENTF_LEFTUP   = 0x0004
+	)
+
+	// First Click
+	time.Sleep(30 * time.Millisecond)
+	window.ProcMouseEvent.Call(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+	window.ProcMouseEvent.Call(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+
+	// Interval (short enough for OS to register as double click)
+	time.Sleep(50 * time.Millisecond)
+
+	// Second Click
+	window.ProcMouseEvent.Call(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+	window.ProcMouseEvent.Call(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+
+	return nil
+}
+
 // -----------------------------------------------------------------------------
 // Input API (Keyboard)
 // -----------------------------------------------------------------------------
