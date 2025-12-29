@@ -88,3 +88,12 @@ func GetCursorPos() (x, y int32, err error) {
 	}
 	return pt.X, pt.Y, nil
 }
+
+// SetCursorPos moves the cursor to the specified screen coordinates.
+func SetCursorPos(x, y int32) error {
+	r, _, _ := ProcSetCursorPos.Call(uintptr(x), uintptr(y))
+	if r == 0 {
+		return fmt.Errorf("SetCursorPos failed")
+	}
+	return nil
+}

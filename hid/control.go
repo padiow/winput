@@ -286,9 +286,6 @@ func Move(targetX, targetY int32) error {
 		}
 	}
 
-	// Final check, if still far off, return error?
-	// Or just accept we are close enough.
-	// Let's log if vastly different, but usually we are <2px now.
 	return nil
 }
 
@@ -333,7 +330,7 @@ func Click(x, y int32) error {
 
 	// Stabilize after move
 	// Move() now guarantees convergence, but we still need a muscle memory pause.
-	humanSleep(50)
+	time.Sleep(50 * time.Millisecond)
 
 	// Normal click: hold 60-90ms
 	return clickRaw(lCtx, lDev, 60, 90)
@@ -351,7 +348,7 @@ func ClickRight(x, y int32) error {
 	}
 	defer unlock()
 
-	humanSleep(50)
+	time.Sleep(50 * time.Millisecond)
 
 	down := interception.MouseStroke{State: interception.MouseStateRightDown}
 	if err := interception.SendMouse(lCtx, lDev, &down); err != nil {
@@ -379,7 +376,7 @@ func ClickMiddle(x, y int32) error {
 	}
 	defer unlock()
 
-	humanSleep(50)
+	time.Sleep(50 * time.Millisecond)
 
 	down := interception.MouseStroke{State: interception.MouseStateMiddleDown}
 	if err := interception.SendMouse(lCtx, lDev, &down); err != nil {
@@ -396,67 +393,113 @@ func ClickMiddle(x, y int32) error {
 }
 
 // DoubleClick simulates a left mouse button double-click at the current cursor position.
-// It moves ONCE, then clicks twice rapidly and deterministically to ensure Windows recognizes the double-click event.
+// It moves ONCE, then clicks twice rapidly and deterministically.
 func DoubleClick(x, y int32) error {
-	// 1. Move to target
+	// 1. Move 到目标（保留你的 Move 保证轨迹与视觉一致）
 	if err := Move(x, y); err != nil {
 		return err
 	}
 
+	// 2. Acquire device
 	lCtx, lDev, unlock, err := acquireMouse()
 	if err != nil {
 		return err
 	}
 	defer unlock()
 
-	// 2. Stabilize (Wait for move to settle completely)
-	// CRITICAL FIX: Increased wait time to ensure OS cursor update lag is resolved.
-	// If the cursor is still drifting (inertia) or OS hasn't updated pos, double click fails.
-	time.Sleep(150 * time.Millisecond)
-
-	// Get system double click time
-	r, _, _ := window.ProcGetDoubleClickTime.Call()
-	sysDcTime := time.Duration(r) * time.Millisecond
-	if sysDcTime == 0 {
-		sysDcTime = 500 * time.Millisecond // Default fallback
+	// 3. 强制设系统光标到精确目标（消除相对移动异步）
+	// window 包中假定存在 ProcSetCursorPos (见你其它处用法)
+	r, _, _ := window.ProcSetCursorPos.Call(uintptr(x), uintptr(y))
+	if r == 0 {
+		// 若 SetCursorPos 失败，仍可继续，但记录/返回错误更安全
+		// 这里选择返回错误，让调用者显式处理
+		return fmt.Errorf("SetCursorPos failed")
 	}
+	// 睡短候，以便系统合成与驱动稳定（一般 8~20ms 足够）
+	time.Sleep(12 * time.Millisecond)
 
-	// Use 40% of system time as interval, capped at min 30ms
-	interval := sysDcTime * 4 / 10
+	// 4. 读取系统双击时间并选取稳健间隔（取三分之一，且不小于 30ms）
+	r2, _, _ := window.ProcGetDoubleClickTime.Call()
+	sysDc := time.Duration(r2) * time.Millisecond
+	if sysDc == 0 {
+		sysDc = 500 * time.Millisecond
+	}
+	interval := sysDc / 3
 	if interval < 30*time.Millisecond {
 		interval = 30 * time.Millisecond
 	}
+	hold := 25 * time.Millisecond // Down 保持时间
 
-	// Hold time for each click (short, crisp)
-	holdTime := 40 * time.Millisecond
-
-	// 3. Atomic Double Click Sequence (No Randomness)
-
-	// First Click Down
 	down := interception.MouseStroke{State: interception.MouseStateLeftDown}
-	if err := interception.SendMouse(lCtx, lDev, &down); err != nil {
-		return err
-	}
-	time.Sleep(holdTime)
-
-	// First Click Up
 	up := interception.MouseStroke{State: interception.MouseStateLeftUp}
-	if err := interception.SendMouse(lCtx, lDev, &up); err != nil {
+
+	// helper：发送并短重试一次
+	sendOnce := func(st *interception.MouseStroke) error {
+		if err := interception.SendMouse(lCtx, lDev, st); err != nil {
+			// 短重试一次
+			time.Sleep(6 * time.Millisecond)
+			if err2 := interception.SendMouse(lCtx, lDev, st); err2 != nil {
+				return err2
+			}
+		}
+		return nil
+	}
+
+	// 5. 原子双击序列（无随机、无 Move）
+	// First Down/Up
+	if err := sendOnce(&down); err != nil {
+		return err
+	}
+	time.Sleep(hold)
+	if err := sendOnce(&up); err != nil {
 		return err
 	}
 
-	// Interval
+	// Interval（严格且确定）
 	time.Sleep(interval)
 
-	// Second Click Down
-	if err := interception.SendMouse(lCtx, lDev, &down); err != nil {
+	// Second Down/Up
+	if err := sendOnce(&down); err != nil {
 		return err
 	}
-	time.Sleep(holdTime)
-
-	// Second Click Up
-	if err := interception.SendMouse(lCtx, lDev, &up); err != nil {
+	time.Sleep(hold)
+	if err := sendOnce(&up); err != nil {
 		return err
+	}
+
+	// 6. 验证光标位置（可选——用于诊断与重试）
+	curX, curY, err := window.GetCursorPos()
+	if err == nil {
+		if abs(curX-x) > 1 || abs(curY-y) > 1 {
+			// 若位置偏移过大，可做一次重试（仅一次）
+			// 记录日志以便后续分析（此处用 fmt.Println 作示例）
+			fmt.Printf("DoubleClick: pos drift detected cur=(%d,%d) want=(%d,%d); retrying once\n", curX, curY, x, y)
+
+			// 再做一次严格双击（不再递归）
+			// 先强制SetCursorPos
+			r, _, _ := window.ProcSetCursorPos.Call(uintptr(x), uintptr(y))
+			if r == 0 {
+				return fmt.Errorf("SetCursorPos failed on retry")
+			}
+			time.Sleep(12 * time.Millisecond)
+
+			// 重试序列
+			if err := sendOnce(&down); err != nil {
+				return err
+			}
+			time.Sleep(hold)
+			if err := sendOnce(&up); err != nil {
+				return err
+			}
+			time.Sleep(interval)
+			if err := sendOnce(&down); err != nil {
+				return err
+			}
+			time.Sleep(hold)
+			if err := sendOnce(&up); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
