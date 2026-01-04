@@ -2,6 +2,7 @@ package window
 
 import (
 	"fmt"
+	"unsafe"
 )
 
 // DPI Awareness Contexts (Pseudo-Handles)
@@ -99,26 +100,43 @@ func GetDPI(hwnd uintptr) (uint32, uint32, error) {
 // This is critical for ensuring that screen coordinates (GetSystemMetrics, BitBlt) are exact
 // pixels and not virtualized/scaled by the OS.
 func IsPerMonitorDPIAware() bool {
-	// API only available on Win10 1607+
-	if err := ProcGetProcessDpiAwarenessCtx.Find(); err != nil {
-		return false
-	}
-	if err := ProcAreDpiAwarenessContextsEqual.Find(); err != nil {
-		return false
+	// 1. Try Modern Win10 API (1607+)
+	if err := ProcGetProcessDpiAwarenessCtx.Find(); err == nil {
+		if err := ProcAreDpiAwarenessContextsEqual.Find(); err == nil {
+			ctx, _, _ := ProcGetProcessDpiAwarenessCtx.Call(0)
+			if ctx != 0 {
+				// Check for V2
+				r1, _, _ := ProcAreDpiAwarenessContextsEqual.Call(ctx, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
+				if r1 != 0 {
+					return true
+				}
+				// Check for V1
+				r2, _, _ := ProcAreDpiAwarenessContextsEqual.Call(ctx, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE)
+				if r2 != 0 {
+					return true
+				}
+			}
+		}
 	}
 
-	ctx, _, _ := ProcGetProcessDpiAwarenessCtx.Call(0) // 0 = Current Process
-	if ctx == 0 {
-		return false
+	// 2. Try Windows 8.1 API (Shcore.dll)
+	if err := ProcGetProcessDpiAwareness.Find(); err == nil {
+		var awareness int32
+		// 0 = current process (NULL handle)
+		r, _, _ := ProcGetProcessDpiAwareness.Call(0, uintptr(unsafe.Pointer(&awareness)))
+		if r == 0 { // S_OK
+			// PROCESS_PER_MONITOR_DPI_AWARE = 2
+			return awareness == 2
+		}
 	}
 
-	// Check if equal to V2 (Best)
-	r1, _, _ := ProcAreDpiAwarenessContextsEqual.Call(ctx, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
-	if r1 != 0 {
-		return true
+	// 3. Try Vista/Win7 API (User32.dll)
+	// Note: This only returns if the process is "Aware" (System Aware), 
+	// it doesn't distinguish Per-Monitor. But for older systems, this is the best we can check.
+	if err := ProcIsProcessDPIAware.Find(); err == nil {
+		r, _, _ := ProcIsProcessDPIAware.Call()
+		return r != 0
 	}
 
-	// Check if equal to V1
-	r2, _, _ := ProcAreDpiAwarenessContextsEqual.Call(ctx, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE)
-	return r2 != 0
+	return false
 }

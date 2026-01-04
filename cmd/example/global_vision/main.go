@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"image/png"
 	"log"
+	"os"
 
 	"github.com/rpdg/winput"
 	"github.com/rpdg/winput/screen"
@@ -33,6 +35,21 @@ func main() {
 		log.Fatalf("❌ Capture failed: %v", err)
 	}
 	fmt.Printf("✅ Captured %dx%d image (Standard *image.RGBA)\n", img.Bounds().Dx(), img.Bounds().Dy())
+
+	// --- Save the image to a file ---
+	// You need to import "os" and "image/png" for this to work
+	f, err := os.Create("capture.png")
+	if err != nil {
+		log.Printf("❌ Failed to create capture.png: %v", err)
+	} else {
+		defer f.Close()
+		if err := png.Encode(f, img); err != nil {
+			log.Printf("❌ Failed to encode PNG: %v", err)
+		} else {
+			fmt.Println("✅ Image saved to capture.png")
+		}
+	}
+	// ---------------------------------
 
 	// 4. Global Input Demo
 	if len(monitors) > 0 {

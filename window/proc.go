@@ -38,8 +38,10 @@ var (
 	ProcSetProcessDpiAwarenessCtx     = user32.NewProc("SetProcessDpiAwarenessContext")
 	ProcGetProcessDpiAwarenessCtx     = user32.NewProc("GetProcessDpiAwarenessContext")
 	ProcAreDpiAwarenessContextsEqual  = user32.NewProc("AreDpiAwarenessContextsEqual")
+	ProcIsProcessDPIAware             = user32.NewProc("IsProcessDPIAware")
 
-	ProcGetDpiForMonitor = shcore.NewProc("GetDpiForMonitor")
+	ProcGetDpiForMonitor       = shcore.NewProc("GetDpiForMonitor")
+	ProcGetProcessDpiAwareness = shcore.NewProc("GetProcessDpiAwareness")
 
 	ProcGetDC         = user32.NewProc("GetDC")
 	ProcReleaseDC     = user32.NewProc("ReleaseDC")
