@@ -33,14 +33,25 @@ var (
 	ProcGetSystemMetrics    = user32.NewProc("GetSystemMetrics")
 	ProcGetDoubleClickTime  = user32.NewProc("GetDoubleClickTime")
 
-	ProcGetDpiForWindow           = user32.NewProc("GetDpiForWindow") // Win10+
-	ProcSetProcessDpiAwarenessCtx = user32.NewProc("SetProcessDpiAwarenessContext")
+	// DPI Awareness (Win10 1607+)
+	ProcGetDpiForWindow               = user32.NewProc("GetDpiForWindow")
+	ProcSetProcessDpiAwarenessCtx     = user32.NewProc("SetProcessDpiAwarenessContext")
+	ProcGetProcessDpiAwarenessCtx     = user32.NewProc("GetProcessDpiAwarenessContext")
+	ProcAreDpiAwarenessContextsEqual  = user32.NewProc("AreDpiAwarenessContextsEqual")
 
 	ProcGetDpiForMonitor = shcore.NewProc("GetDpiForMonitor")
 
 	ProcGetDC         = user32.NewProc("GetDC")
 	ProcReleaseDC     = user32.NewProc("ReleaseDC")
-	ProcGetDeviceCaps = gdi32.NewProc("GetDeviceCaps")
+	
+	// GDI Functions for Capture
+	ProcGetDeviceCaps      = gdi32.NewProc("GetDeviceCaps")
+	ProcCreateCompatibleDC = gdi32.NewProc("CreateCompatibleDC")
+	ProcCreateDIBSection   = gdi32.NewProc("CreateDIBSection")
+	ProcSelectObject       = gdi32.NewProc("SelectObject")
+	ProcDeleteObject       = gdi32.NewProc("DeleteObject")
+	ProcDeleteDC           = gdi32.NewProc("DeleteDC")
+	ProcBitBlt             = gdi32.NewProc("BitBlt")
 
 	ProcPostMessageW   = user32.NewProc("PostMessageW")
 	ProcMapVirtualKeyW = user32.NewProc("MapVirtualKeyW")
