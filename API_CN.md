@@ -12,6 +12,9 @@
 *   [func SetHIDLibraryPath](#func-sethidlibrarypath)
 *   [func MoveMouseTo](#func-movemouseto)
 *   [func ClickMouseAt](#func-clickmouseat)
+*   [func ClickRightMouseAt](#func-clickrightmouseat)
+*   [func ClickMiddleMouseAt](#func-clickmiddlemouseat)
+*   [func DoubleClickMouseAt](#func-doubleclickmouseat)
 *   [func KeyDown](#func-keydown)
 *   [func KeyUp](#func-keyup)
 *   [func Press](#func-press)
@@ -157,6 +160,27 @@ MoveMouseTo 将鼠标光标移动到绝对屏幕坐标（虚拟桌面）。
 func ClickMouseAt(x, y int32) error
 ```
 ClickMouseAt 将鼠标移动到指定屏幕坐标并执行左键点击。
+
+### func ClickRightMouseAt
+
+```go
+func ClickRightMouseAt(x, y int32) error
+```
+ClickRightMouseAt 将鼠标移动到指定屏幕坐标并执行右键点击。
+
+### func ClickMiddleMouseAt
+
+```go
+func ClickMiddleMouseAt(x, y int32) error
+```
+ClickMiddleMouseAt 将鼠标移动到指定屏幕坐标并执行中键点击。
+
+### func DoubleClickMouseAt
+
+```go
+func DoubleClickMouseAt(x, y int32) error
+```
+DoubleClickMouseAt 将鼠标移动到指定屏幕坐标并执行左键双击。
 
 ### func KeyDown
 

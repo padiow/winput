@@ -34,18 +34,18 @@ var (
 	ProcGetDoubleClickTime  = user32.NewProc("GetDoubleClickTime")
 
 	// DPI Awareness (Win10 1607+)
-	ProcGetDpiForWindow               = user32.NewProc("GetDpiForWindow")
-	ProcSetProcessDpiAwarenessCtx     = user32.NewProc("SetProcessDpiAwarenessContext")
-	ProcGetProcessDpiAwarenessCtx     = user32.NewProc("GetProcessDpiAwarenessContext")
-	ProcAreDpiAwarenessContextsEqual  = user32.NewProc("AreDpiAwarenessContextsEqual")
-	ProcIsProcessDPIAware             = user32.NewProc("IsProcessDPIAware")
+	ProcGetDpiForWindow              = user32.NewProc("GetDpiForWindow")
+	ProcSetProcessDpiAwarenessCtx    = user32.NewProc("SetProcessDpiAwarenessContext")
+	ProcGetProcessDpiAwarenessCtx    = user32.NewProc("GetProcessDpiAwarenessContext")
+	ProcAreDpiAwarenessContextsEqual = user32.NewProc("AreDpiAwarenessContextsEqual")
+	ProcIsProcessDPIAware            = user32.NewProc("IsProcessDPIAware")
 
 	ProcGetDpiForMonitor       = shcore.NewProc("GetDpiForMonitor")
 	ProcGetProcessDpiAwareness = shcore.NewProc("GetProcessDpiAwareness")
 
-	ProcGetDC         = user32.NewProc("GetDC")
-	ProcReleaseDC     = user32.NewProc("ReleaseDC")
-	
+	ProcGetDC     = user32.NewProc("GetDC")
+	ProcReleaseDC = user32.NewProc("ReleaseDC")
+
 	// GDI Functions for Capture
 	ProcGetDeviceCaps      = gdi32.NewProc("GetDeviceCaps")
 	ProcCreateCompatibleDC = gdi32.NewProc("CreateCompatibleDC")

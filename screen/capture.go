@@ -15,7 +15,7 @@ const (
 	SRCCOPY        = 0x00CC0020
 	DIB_RGB_COLORS = 0
 	BI_RGB         = 0
-	
+
 	// GetSystemMetrics constants
 	SM_XVIRTUALSCREEN  = 76
 	SM_YVIRTUALSCREEN  = 77
@@ -160,7 +160,7 @@ func convertToRGBA(ppvBits unsafe.Pointer, width, height int, preserveAlpha bool
 	}
 
 	totalBytes := width * height * 4
-	
+
 	// Create slice backed by C memory (Go 1.17+)
 	// This is safe because we copy immediately.
 	srcBytes := unsafe.Slice((*byte)(ppvBits), totalBytes)
@@ -186,7 +186,7 @@ func convertBGRAtoRGBASerial(src, dst []byte, preserveAlpha bool) {
 	// Simple serial loop
 	// Bounds check elimination hint: len(src) == len(dst)
 	_ = dst[len(src)-1]
-	
+
 	for i := 0; i < len(src); i += 4 {
 		b := src[i]
 		g := src[i+1]
@@ -214,7 +214,7 @@ func convertBGRAtoRGBAParallel(src, dst []byte, preserveAlpha bool) {
 	// Ensure chunk size aligns with 4 bytes (pixel boundary)
 	// totalBytes is guaranteed to be multiple of 4
 	chunkSize := (len(src) / numCPU) &^ 3 // Round down to multiple of 4
-	
+
 	var wg sync.WaitGroup
 	wg.Add(numCPU)
 

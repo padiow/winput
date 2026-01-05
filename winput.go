@@ -427,6 +427,52 @@ func DoubleClickMouseAt(x, y int32) error {
 	return nil
 }
 
+// ClickRightMouseAt moves to the specified screen coordinates and performs a right click.
+func ClickRightMouseAt(x, y int32) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+	if err := checkBackend(); err != nil {
+		return err
+	}
+
+	if getBackend() == BackendHID {
+		return hid.ClickRight(x, y)
+	}
+
+	r, _, _ := window.ProcSetCursorPos.Call(uintptr(x), uintptr(y))
+	if r == 0 {
+		return fmt.Errorf("SetCursorPos failed")
+	}
+
+	time.Sleep(30 * time.Millisecond)
+	window.ProcMouseEvent.Call(0x0008, 0, 0, 0, 0) // RIGHTDOWN
+	window.ProcMouseEvent.Call(0x0010, 0, 0, 0, 0) // RIGHTUP
+	return nil
+}
+
+// ClickMiddleMouseAt moves to the specified screen coordinates and performs a middle click.
+func ClickMiddleMouseAt(x, y int32) error {
+	inputMutex.Lock()
+	defer inputMutex.Unlock()
+	if err := checkBackend(); err != nil {
+		return err
+	}
+
+	if getBackend() == BackendHID {
+		return hid.ClickMiddle(x, y)
+	}
+
+	r, _, _ := window.ProcSetCursorPos.Call(uintptr(x), uintptr(y))
+	if r == 0 {
+		return fmt.Errorf("SetCursorPos failed")
+	}
+
+	time.Sleep(30 * time.Millisecond)
+	window.ProcMouseEvent.Call(0x0020, 0, 0, 0, 0) // MIDDLEDOWN
+	window.ProcMouseEvent.Call(0x0040, 0, 0, 0, 0) // MIDDLEUP
+	return nil
+}
+
 // -----------------------------------------------------------------------------
 // Input API (Keyboard)
 // -----------------------------------------------------------------------------

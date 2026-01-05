@@ -131,7 +131,7 @@ func IsPerMonitorDPIAware() bool {
 	}
 
 	// 3. Try Vista/Win7 API (User32.dll)
-	// Note: This only returns if the process is "Aware" (System Aware), 
+	// Note: This only returns if the process is "Aware" (System Aware),
 	// it doesn't distinguish Per-Monitor. But for older systems, this is the best we can check.
 	if err := ProcIsProcessDPIAware.Find(); err == nil {
 		r, _, _ := ProcIsProcessDPIAware.Call()

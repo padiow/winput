@@ -174,7 +174,28 @@ MoveMouseTo moves the mouse cursor to the absolute screen coordinates (Virtual D
 ```go
 func ClickMouseAt(x, y int32) error
 ```
-ClickMouseAt moves to the specified screen coordinates and performs a left click.
+ClickMouseAt moves the mouse to the specified screen coordinates and performs a left click.
+
+### func ClickRightMouseAt
+
+```go
+func ClickRightMouseAt(x, y int32) error
+```
+ClickRightMouseAt moves the mouse to the specified screen coordinates and performs a right click.
+
+### func ClickMiddleMouseAt
+
+```go
+func ClickMiddleMouseAt(x, y int32) error
+```
+ClickMiddleMouseAt moves the mouse to the specified screen coordinates and performs a middle click.
+
+### func DoubleClickMouseAt
+
+```go
+func DoubleClickMouseAt(x, y int32) error
+```
+DoubleClickMouseAt moves the mouse to the specified screen coordinates and performs a left double-click.
 
 ### func KeyDown
 
