@@ -144,6 +144,24 @@ func TestMouseInput(t *testing.T) {
 		// Click center to focus
 		w.Click(100, 100)
 	})
+
+	t.Run("GlobalAdditionalClicks", func(t *testing.T) {
+		// Test right and middle click global functions
+		if err := winput.ClickRightMouseAt(200, 200); err != nil {
+			t.Errorf("ClickRightMouseAt failed: %v", err)
+		}
+		if err := winput.ClickMiddleMouseAt(210, 210); err != nil {
+			t.Errorf("ClickMiddleMouseAt failed: %v", err)
+		}
+		t.Log("Global right/middle clicks executed")
+	})
+
+	t.Run("GlobalDoubleClick", func(t *testing.T) {
+		if err := winput.DoubleClickMouseAt(220, 220); err != nil {
+			t.Errorf("DoubleClickMouseAt failed: %v", err)
+		}
+		t.Log("Global double click executed")
+	})
 }
 
 // -----------------------------------------------------------------------------
@@ -183,6 +201,13 @@ func TestKeyboardInput(t *testing.T) {
 		// Target specific window
 		if err := w.Type("Test"); err != nil {
 			t.Errorf("Window.Type failed: %v", err)
+		}
+	})
+
+	t.Run("WindowHotkey", func(t *testing.T) {
+		// Ctrl + A via window object
+		if err := w.PressHotkey(winput.KeyCtrl, winput.KeyA); err != nil {
+			t.Errorf("Window.PressHotkey failed: %v", err)
 		}
 	})
 }
