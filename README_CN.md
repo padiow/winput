@@ -1,8 +1,12 @@
 # winput
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/rpdg/winput)
+
 **winput** 是一个轻量级、高性能的 Go 语言 Windows 后台输入自动化库。
 
 它提供了一套统一的、以窗口为中心的 API，抽象了底层的输入机制，支持在标准的 Windows 消息 (`PostMessage`) 和内核级注入 (`Interception` 驱动) 之间无缝切换。
+
+
 
 ## 功能特性
 
@@ -21,6 +25,8 @@
     *   类型安全的 Key 定义 (避免直接使用裸扫描码)。
 *   **键盘布局**:
     *   `KeyFromRune` 和 `Type` 函数目前假定为 **美国 QWERTY** 键盘布局。
+
+
 
 ## 视觉自动化 (Electron / 游戏)
 
@@ -55,7 +61,11 @@ func main() {
 }
 ```
 
+
+
 ## API 参考手册
+
+
 
 ## 后端限制与权限
 
@@ -78,6 +88,8 @@ func main() {
     *   **鼠标移动**: 会实际移动物理光标。
     *   **焦点**: 通常需要窗口处于前台才能正确响应输入。
 
+
+
 ## 安装
 
 ```bash
@@ -96,6 +108,8 @@ go get github.com/rpdg/winput
         panic(err)
     }
     ```
+
+
 
 ## 使用示例
 
@@ -118,6 +132,8 @@ go run cmd/example/global_vision/main.go
 ```bash
 go run cmd/example/advanced_hid/main.go
 ```
+
+
 
 ## 快速开始 (代码片段)
 
@@ -156,6 +172,8 @@ func main() {
 }
 ```
 
+
+
 ## 错误处理指南
 
 `winput` 拒绝静默失败。以下是您应该处理的常见错误：
@@ -182,6 +200,8 @@ if err := w.Click(100, 100); err != nil {
     log.Fatal(err)
 }
 ```
+
+
 
 ## 高级用法
 
@@ -217,6 +237,8 @@ w.Type("password") // 使用当前激活的后端工作
 - **支持范围**: A-Z, 0-9, 常用符号 (`!`, `@`, `#`...), 空格, 回车, Tab。
 - **自动 Shift**: `Type("A")` 会自动发送 `Shift 按下` -> `a 按下` -> `a 抬起` -> `Shift 抬起`。
 
+
+
 ## 项目对比
 
 | 特性 | winput (Go) | C# Interceptor 封装 | Python winput (ctypes) |
@@ -229,6 +251,8 @@ w.Type("password") // 使用当前激活的后端工作
 
 *   **对比 Python winput**: Python 版适合简单自动化，但缺乏游戏或顽固应用所需的内核级注入能力。
 *   **对比 C# Interceptor**: 大多数 C# 封装直接暴露原始驱动 API，而 `winput` 将其抽象为高级动作 (Click, Type) 并内置了坐标转换逻辑。
+
+
 
 ## 许可证
 

@@ -1,5 +1,7 @@
 # winput
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/rpdg/winput)
+
 **winput** is a lightweight, high-performance Go library for Windows background input automation.
 
 It provides a unified, window-centric API that abstracts the underlying input mechanism, allowing seamless switching between standard Window Messages (`PostMessage`) and kernel-level injection (`Interception` driver).
