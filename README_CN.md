@@ -44,6 +44,8 @@ func main() {
 
 	// 1. 捕获整个虚拟桌面（包含所有显示器）
 	img, err := screen.CaptureVirtualDesktop()
+	// 或者捕获指定区域：
+	// img, err := screen.CaptureRegion(0, 0, 1920, 1080)
 	if err != nil {
 		panic(err)
 	}

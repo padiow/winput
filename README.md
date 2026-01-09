@@ -39,6 +39,8 @@ func main() {
 
 	// 1. Capture the entire virtual desktop (all monitors)
 	img, err := screen.CaptureVirtualDesktop()
+	// Or capture a specific region:
+	// img, err := screen.CaptureRegion(0, 0, 1920, 1080)
 	if err != nil {
 		panic(err)
 	}

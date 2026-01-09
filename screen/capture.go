@@ -232,3 +232,43 @@ func convertBGRAtoRGBAParallel(src, dst []byte, preserveAlpha bool) {
 	}
 	wg.Wait()
 }
+
+// CaptureRegion captures a specific region of the virtual desktop.
+// x, y: Virtual desktop coordinates (allowed to be negative).
+// w, h: Pixel dimensions of the region to capture.
+func CaptureRegion(x, y, w, h int32) (*image.RGBA, error) {
+	if w <= 0 || h <= 0 {
+		return nil, fmt.Errorf("invalid region size: %dx%d", w, h)
+	}
+
+	fullImg, err := CaptureVirtualDesktop()
+	if err != nil {
+		return nil, err
+	}
+
+	vx, _, _ := window.ProcGetSystemMetrics.Call(SM_XVIRTUALSCREEN)
+	vy, _, _ := window.ProcGetSystemMetrics.Call(SM_YVIRTUALSCREEN)
+
+	vx32 := int32(vx)
+	vy32 := int32(vy)
+
+	imgX := int(x - vx32)
+	imgY := int(y - vy32)
+
+	reqRect := image.Rect(imgX, imgY, imgX+int(w), imgY+int(h))
+	intersect := reqRect.Intersect(fullImg.Bounds())
+
+	if intersect.Empty() {
+		return nil, fmt.Errorf("requested region is outside virtual desktop")
+	}
+
+	out := image.NewRGBA(image.Rect(0, 0, intersect.Dx(), intersect.Dy()))
+
+	for row := 0; row < intersect.Dy(); row++ {
+		src := (intersect.Min.Y+row)*fullImg.Stride + intersect.Min.X*4
+		dst := row * out.Stride
+		copy(out.Pix[dst:dst+intersect.Dx()*4], fullImg.Pix[src:src+intersect.Dx()*4])
+	}
+
+	return out, nil
+}

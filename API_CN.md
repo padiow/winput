@@ -21,6 +21,7 @@
 *   [func PressHotkey](#func-presshotkey)
 *   [func Type](#func-type)
 *   [func CaptureVirtualDesktop](#func-capturevirtualdesktop)
+*   [func CaptureRegion](#func-captureregion)
 *   [type Backend](#type-backend)
 *   [type Key](#type-key)
     *   [func KeyFromRune](#func-keyfromrune)
@@ -223,6 +224,16 @@ Type 模拟全局文本输入（通过模拟按键序列）。
 func CaptureVirtualDesktop() (*image.RGBA, error)
 ```
 CaptureVirtualDesktop (在 `screen` 包中) 使用 GDI 捕获整个虚拟桌面（所有显示器）。要求进程已开启 Per-Monitor DPI 感知。返回 `*image.RGBA` 对象。
+
+### func CaptureRegion
+
+```go
+func CaptureRegion(x, y, w, h int32) (*image.RGBA, error)
+```
+CaptureRegion (在 `screen` 包中) 捕获虚拟桌面的指定区域。
+`x`, `y` 为虚拟桌面坐标（允许负值）。
+`w`, `h` 为像素尺寸。
+内部调用 `CaptureVirtualDesktop`，转换坐标并执行安全裁剪。
 
 ## 类型
 
